@@ -1,0 +1,207 @@
+rules_version = '2';
+
+// Règles du Parti du Maroc Émergeant.
+// - members/{uid}   : fiche adhérent, lisible par son titulaire et les administrateurs.
+// - cins/{CIN}      : verrou d'unicité (une CIN = un compte), jamais lisible côté client.
+// - proofs/{uid}    : fiche d'inscription sur les listes électorales (image/PDF encodé).
+// Premier administrateur : dans la console, mettre role = "admin" sur sa fiche members/{uid}.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return signedIn()
+        && exists(/databases/$(database)/documents/members/$(request.auth.uid))
+        && get(/databases/$(database)/documents/members/$(request.auth.uid)).data.role in ['admin', 'bureau_politique'];
+    }
+
+    function memberDoc() {
+      return get(/databases/$(database)/documents/members/$(request.auth.uid)).data;
+    }
+
+    function isMember() {
+      return signedIn() && exists(/databases/$(database)/documents/members/$(request.auth.uid));
+    }
+
+    // Le nom et la région affichés sur une publication doivent être ceux du profil (pas d'usurpation).
+    function authorMatchesProfile() {
+      return request.resource.data.authorId == request.auth.uid
+        && request.resource.data.authorName == memberDoc().firstNameFr + ' ' + memberDoc().lastNameFr
+        && request.resource.data.authorRegion == memberDoc().province;
+    }
+
+    // Mise à jour des compteurs d'un débat : ils doivent refléter exactement le vote du membre.
+    function debateVoteCounter(debateId) {
+      let votePath = /databases/$(database)/documents/debateVotes/$(debateId + '_' + request.auth.uid);
+      let after = existsAfter(votePath) ? getAfter(votePath).data.vote : '';
+      let before = exists(votePath) ? get(votePath).data.vote : '';
+      return isMember()
+        && existsAfter(votePath)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['votesFor', 'votesAgainst', 'votesNeutral'])
+        && request.resource.data.votesFor == resource.data.votesFor + (after == 'for' ? 1 : 0) - (before == 'for' ? 1 : 0)
+        && request.resource.data.votesAgainst == resource.data.votesAgainst + (after == 'against' ? 1 : 0) - (before == 'against' ? 1 : 0)
+        && request.resource.data.votesNeutral == resource.data.votesNeutral + (after == 'neutral' ? 1 : 0) - (before == 'neutral' ? 1 : 0);
+    }
+
+    function debateCommentCounter() {
+      return isMember()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['commentsCount'])
+        && request.resource.data.commentsCount == resource.data.commentsCount + 1;
+    }
+
+    // Un sondage ne peut gagner qu'une voix, pour l'option du vote enregistré dans la même opération.
+    function pollVoteCounter(pollId) {
+      let votePath = /databases/$(database)/documents/pollVotes/$(pollId + '_' + request.auth.uid);
+      let option = existsAfter(votePath) ? getAfter(votePath).data.optionId : '';
+      return isMember()
+        && resource.data.status == 'open'
+        && !exists(votePath)
+        && existsAfter(votePath)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['counts', 'totalVotes'])
+        && request.resource.data.totalVotes == resource.data.totalVotes + 1
+        && request.resource.data.counts.diff(resource.data.counts).affectedKeys().hasOnly([option])
+        && request.resource.data.counts[option] == resource.data.counts.get(option, 0) + 1;
+    }
+
+    match /members/{uid} {
+      allow get: if signedIn() && (request.auth.uid == uid || isAdmin());
+      allow list: if isAdmin();
+
+      // Inscription : l'adhérent crée sa propre fiche, avec le rôle le plus bas
+      // et sans pouvoir se déclarer "vérifié".
+      allow create: if signedIn()
+        && request.auth.uid == uid
+        && request.resource.data.role == 'member'
+        && request.resource.data.status == 'pending_verification'
+        && request.resource.data.electoralStatus in ['none', 'submitted']
+        && request.resource.data.isElectorallyVerified == false
+        && request.resource.data.photoUrl.size() < 200000;
+
+      // L'adhérent peut (1) déposer sa fiche électorale (none/rejected -> submitted)
+      // et (2) modifier son profil. Rôle, statut, CIN, région et titre restent réservés à l'administration.
+      allow update: if isAdmin()
+        || (signedIn()
+          && request.auth.uid == uid
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['electoralStatus', 'electoralProofName'])
+          && request.resource.data.electoralStatus == 'submitted'
+          && resource.data.electoralStatus in ['none', 'rejected'])
+        || (signedIn()
+          && request.auth.uid == uid
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(
+               ['firstNameFr', 'lastNameFr', 'firstNameAr', 'lastNameAr', 'phone', 'profession', 'commune', 'photoUrl'])
+          && request.resource.data.firstNameFr is string && request.resource.data.firstNameFr.size() > 0 && request.resource.data.firstNameFr.size() < 80
+          && request.resource.data.lastNameFr is string && request.resource.data.lastNameFr.size() > 0 && request.resource.data.lastNameFr.size() < 80
+          && request.resource.data.firstNameAr is string && request.resource.data.firstNameAr.size() < 80
+          && request.resource.data.lastNameAr is string && request.resource.data.lastNameAr.size() < 80
+          && request.resource.data.phone is string && request.resource.data.phone.size() < 30
+          && request.resource.data.profession is string && request.resource.data.profession.size() < 120
+          && request.resource.data.commune is string && request.resource.data.commune.size() < 120
+          && request.resource.data.photoUrl is string && request.resource.data.photoUrl.size() < 200000);
+
+      allow delete: if false;
+    }
+
+    // Création seule : si la CIN existe déjà, l'écriture devient une mise à jour, refusée.
+    match /cins/{cin} {
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly(['uid'])
+        && request.resource.data.uid == request.auth.uid;
+      allow read, update, delete: if false;
+    }
+
+    match /proofs/{uid} {
+      allow get: if signedIn() && (request.auth.uid == uid || isAdmin());
+      allow create, update: if signedIn()
+        && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['dataUrl', 'mime', 'name', 'uploadedAt'])
+        && request.resource.data.mime in ['image/jpeg', 'application/pdf']
+        && request.resource.data.dataUrl.size() < 900000;
+      allow list, delete: if false;
+    }
+
+    // ---------------------------------------------------------------------
+    // Forum citoyen : lecture publique, écriture réservée aux adhérents.
+    // ---------------------------------------------------------------------
+    match /debates/{debateId} {
+      allow read: if true;
+
+      allow create: if isMember()
+        && authorMatchesProfile()
+        && request.resource.data.keys().hasOnly(['category', 'titleFr', 'titleAr', 'contentFr', 'contentAr', 'tags',
+             'authorId', 'authorName', 'authorRegion', 'authorRole', 'createdAt', 'votesFor', 'votesAgainst',
+             'votesNeutral', 'commentsCount', 'status'])
+        && request.resource.data.category in ['economy', 'health_social', 'education_youth', 'water_ecology', 'governance', 'regional_development']
+        && request.resource.data.titleFr is string && request.resource.data.titleFr.size() > 0 && request.resource.data.titleFr.size() <= 200
+        && request.resource.data.titleAr is string && request.resource.data.titleAr.size() <= 200
+        && request.resource.data.contentFr is string && request.resource.data.contentFr.size() > 0 && request.resource.data.contentFr.size() <= 5000
+        && request.resource.data.contentAr is string && request.resource.data.contentAr.size() <= 5000
+        && request.resource.data.tags is list && request.resource.data.tags.size() <= 6
+        && (request.resource.data.authorRole == 'Membre Adhérent PME' || isAdmin())
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.votesFor == 0
+        && request.resource.data.votesAgainst == 0
+        && request.resource.data.votesNeutral == 0
+        && request.resource.data.commentsCount == 0
+        && request.resource.data.status == 'open';
+
+      allow update: if isAdmin() || debateCommentCounter() || debateVoteCounter(debateId);
+      allow delete: if isAdmin();
+
+      match /comments/{commentId} {
+        allow read: if true;
+        allow create: if isMember()
+          && authorMatchesProfile()
+          && request.resource.data.keys().hasOnly(['authorId', 'authorName', 'authorRegion', 'content', 'createdAt'])
+          && request.resource.data.content is string
+          && request.resource.data.content.size() > 0
+          && request.resource.data.content.size() <= 1500
+          && request.resource.data.createdAt == request.time;
+        allow update, delete: if isAdmin();
+      }
+    }
+
+    // Un document par (débat, membre) : l'identifiant garantit l'unicité du vote.
+    match /debateVotes/{voteId} {
+      allow get, list: if signedIn() && resource.data.uid == request.auth.uid;
+      allow create, update: if isMember()
+        && request.resource.data.keys().hasOnly(['debateId', 'uid', 'vote', 'at'])
+        && request.resource.data.uid == request.auth.uid
+        && voteId == request.resource.data.debateId + '_' + request.auth.uid
+        && request.resource.data.vote in ['for', 'against', 'neutral']
+        && request.resource.data.at == request.time
+        && exists(/databases/$(database)/documents/debates/$(request.resource.data.debateId));
+      allow delete: if false;
+    }
+
+    // ---------------------------------------------------------------------
+    // Sondages et consultations : lecture publique, création par l'administration.
+    // ---------------------------------------------------------------------
+    match /polls/{pollId} {
+      allow read: if true;
+      allow create, delete: if isAdmin();
+      allow update: if isAdmin() || pollVoteCounter(pollId);
+    }
+
+    // Un vote par membre et par sondage, définitif (pas de mise à jour ni de suppression).
+    // Les scrutins internes exigent un compte validé par l'administration.
+    match /pollVotes/{voteId} {
+      allow get, list: if signedIn() && resource.data.uid == request.auth.uid;
+      allow create: if isMember()
+        && request.resource.data.keys().hasOnly(['pollId', 'uid', 'optionId', 'at'])
+        && request.resource.data.uid == request.auth.uid
+        && voteId == request.resource.data.pollId + '_' + request.auth.uid
+        && request.resource.data.at == request.time
+        && get(/databases/$(database)/documents/polls/$(request.resource.data.pollId)).data.status == 'open'
+        && (get(/databases/$(database)/documents/polls/$(request.resource.data.pollId)).data.type != 'internal_election'
+            || memberDoc().status == 'active');
+      allow update, delete: if false;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

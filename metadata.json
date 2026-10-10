@@ -1,0 +1,6 @@
+{
+  "name": "Parti du Maroc Émergeant | حزب المغرب الصاعد",
+  "description": "Plateforme citoyenne et d'adhésion officielle du Parti du Maroc Émergeant (PME) - Espace membres, vérification électorale, 12 régions et forum citoyen.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

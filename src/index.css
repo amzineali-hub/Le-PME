@@ -1,0 +1,348 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+    --font-arabic: 'Tajawal', 'Alexandria', system-ui, -apple-system, sans-serif;
+  }
+
+  body {
+    font-family: var(--font-sans);
+  }
+
+  [dir="rtl"],
+  .font-arabic {
+    font-family: var(--font-arabic);
+  }
+}
+
+/* Barres de défilement : larges et bien visibles (bleu pétrole du logo) */
+::-webkit-scrollbar {
+  width: 26px;
+  height: 26px;
+}
+::-webkit-scrollbar-track {
+  background: #dbe8ee;
+  border-left: 1px solid #c4d7e0;
+}
+::-webkit-scrollbar-thumb {
+  background-color: #0e6a8c;
+  border: 5px solid #dbe8ee;
+  border-radius: 9999px;
+  min-height: 64px;
+  min-width: 64px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background-color: #0a4a63;
+}
+::-webkit-scrollbar-thumb:active {
+  background-color: #059669;
+}
+::-webkit-scrollbar-corner {
+  background: #dbe8ee;
+}
+/* Firefox (qui ne connaît pas ::-webkit-scrollbar) */
+@supports not selector(::-webkit-scrollbar) {
+  * {
+    scrollbar-width: auto;
+    scrollbar-color: #0e6a8c #dbe8ee;
+  }
+}
+
+/* Impression de la carte : seuls la carte et ses parents restent dans la mise en page
+   (recto et verso l'un sous l'autre, couleurs de fond conservées, pas de page blanche) */
+@media print {
+  @page {
+    margin: 10mm;
+  }
+  *:not(:has(.card-print-target)):not(.card-print-target):not(.card-print-target *) {
+    display: none !important;
+  }
+  html,
+  body,
+  #root {
+    background: #fff !important;
+    height: auto !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  .card-print-target,
+  .card-print-target * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .card-print-target {
+    position: static !important;
+    height: auto !important;
+    width: 480px !important;
+    max-width: none !important;
+    perspective: none !important;
+    margin: 0 auto !important;
+  }
+  .card-flip-inner {
+    transform: none !important;
+    height: auto !important;
+    box-shadow: none !important;
+  }
+  .card-face {
+    position: relative !important;
+    transform: none !important;
+    height: 290px !important;
+    margin-bottom: 14px;
+    box-shadow: none !important;
+    -webkit-backface-visibility: visible !important;
+    backface-visibility: visible !important;
+    break-inside: avoid;
+  }
+}
+
+/* ==========================================================================
+   Relief 3D — deux couleurs : vert émeraude (actions) + bleu pétrole du logo.
+   CSS non "layered" : il l'emporte sur les utilitaires Tailwind, sans toucher aux composants.
+   Les sélecteurs ciblent des classes exactes (~=) pour ignorer les variantes hover:/focus:.
+   ========================================================================== */
+:root {
+  --g-face: #047857;
+  --g-edge: #064e3b;
+  --g-glow: rgba(6, 78, 59, 0.35);
+  --b-face: #0e6a8c;
+  --b-edge: #08394d;
+  --b-glow: rgba(8, 57, 77, 0.35);
+  --card-edge: #b4cfda;
+  --frame-edge: rgba(14, 106, 140, 0.22);
+}
+
+/* Base : tout bouton "plein" ou "clair" reçoit un relief et s'enfonce au clic */
+button:is(
+    [class~="bg-emerald-500"], [class~="bg-emerald-600"], [class~="bg-emerald-700"], [class~="bg-emerald-800"], [class~="bg-emerald-900"],
+    [class~="bg-slate-900"], [class~="bg-slate-800"], [class*="bg-slate-800/"], [class~="bg-teal-600"], [class~="bg-teal-700"],
+    [class~="bg-indigo-600"], [class~="bg-blue-600"], [class~="bg-amber-400"], [class~="bg-amber-500"],
+    [class~="bg-white"], [class~="bg-slate-50"], [class~="bg-slate-100"], [class~="bg-emerald-50"], [class~="bg-emerald-100"], [class~="bg-amber-50"],
+    [class*="from-emerald-"]
+  ),
+a:is([class~="bg-emerald-600"], [class~="bg-emerald-700"], [class~="bg-slate-900"], [class~="bg-white"], [class~="bg-emerald-50"])[class*="rounded-"][class*="px-"] {
+  transition: transform 0.09s ease, box-shadow 0.09s ease, filter 0.15s ease, background-color 0.15s ease;
+  box-shadow: 0 4px 0 var(--edge, var(--b-edge)), 0 9px 16px var(--glow, var(--b-glow));
+  translate: 0 0;
+}
+
+/* Vert : actions principales */
+button:is(
+    [class~="bg-emerald-500"], [class~="bg-emerald-600"], [class~="bg-emerald-700"], [class~="bg-emerald-800"], [class~="bg-emerald-900"], [class*="from-emerald-"]
+  ),
+a:is([class~="bg-emerald-600"], [class~="bg-emerald-700"])[class*="rounded-"][class*="px-"] {
+  --edge: var(--g-edge);
+  --glow: var(--g-glow);
+  background-color: var(--g-face);
+}
+
+/* Bleu pétrole : boutons pleins secondaires (recolorés avec le bleu du logo) */
+button:is(
+    [class~="bg-slate-900"], [class~="bg-slate-800"], [class*="bg-slate-800/"], [class~="bg-teal-600"], [class~="bg-teal-700"],
+    [class~="bg-indigo-600"], [class~="bg-blue-600"]
+  ),
+a:is([class~="bg-slate-900"])[class*="rounded-"][class*="px-"] {
+  --edge: var(--b-edge);
+  --glow: var(--b-glow);
+  background-color: var(--b-face);
+  border-color: var(--b-edge);
+}
+
+/* Ambre : accent sur fond sombre (hero, carte) */
+button:is([class~="bg-amber-400"], [class~="bg-amber-500"]) {
+  --edge: #92400e;
+  --glow: rgba(146, 64, 14, 0.35);
+}
+
+/* Boutons clairs : face blanche, arête bleue (ou verte pour les teintes vertes) */
+button:is([class~="bg-white"], [class~="bg-slate-50"], [class~="bg-slate-100"], [class~="bg-amber-50"]),
+a:is([class~="bg-white"])[class*="rounded-"][class*="px-"] {
+  --edge: #6f9eb3;
+  --glow: rgba(14, 106, 140, 0.16);
+}
+button:is([class~="bg-emerald-50"], [class~="bg-emerald-100"]),
+a:is([class~="bg-emerald-50"])[class*="rounded-"][class*="px-"] {
+  --edge: #5fb89a;
+  --glow: rgba(6, 95, 70, 0.16);
+}
+
+/* Survol : léger éclaircissement ; clic : le bouton s'enfonce */
+button:is([class~="bg-emerald-500"], [class~="bg-emerald-600"], [class~="bg-emerald-700"], [class~="bg-emerald-800"], [class~="bg-slate-900"], [class~="bg-slate-800"], [class*="bg-slate-800/"], [class~="bg-teal-600"], [class~="bg-indigo-600"], [class*="from-emerald-"]):hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+button:is(
+    [class~="bg-emerald-500"], [class~="bg-emerald-600"], [class~="bg-emerald-700"], [class~="bg-emerald-800"], [class~="bg-emerald-900"],
+    [class~="bg-slate-900"], [class~="bg-slate-800"], [class*="bg-slate-800/"], [class~="bg-teal-600"], [class~="bg-teal-700"],
+    [class~="bg-indigo-600"], [class~="bg-blue-600"], [class~="bg-amber-400"], [class~="bg-amber-500"],
+    [class~="bg-white"], [class~="bg-slate-50"], [class~="bg-slate-100"], [class~="bg-emerald-50"], [class~="bg-emerald-100"], [class~="bg-amber-50"],
+    [class*="from-emerald-"]
+  ):active:not(:disabled),
+a:is([class~="bg-emerald-600"], [class~="bg-emerald-700"], [class~="bg-slate-900"], [class~="bg-white"], [class~="bg-emerald-50"])[class*="rounded-"][class*="px-"]:active {
+  box-shadow: 0 1px 0 var(--edge, var(--b-edge)), 0 2px 5px var(--glow, var(--b-glow));
+  translate: 0 3px;
+}
+
+/* Bouton désactivé : à plat */
+button:disabled {
+  box-shadow: none !important;
+  translate: none !important;
+  filter: none !important;
+}
+
+/* Cartes et cadres : relief par une arête bleutée en bas, léger soulèvement au survol */
+:is(div, article, section, li, form)[class~="bg-white"]:is([class*="rounded-2xl"], [class*="rounded-3xl"], [class*="rounded-xl"])[class*="border"] {
+  box-shadow: 0 5px 0 var(--card-edge), 0 14px 26px rgba(15, 23, 42, 0.07);
+  transition: translate 0.12s ease, box-shadow 0.12s ease, border-color 0.15s ease;
+}
+:is(div, article, section, li)[class~="bg-white"]:is([class*="rounded-2xl"], [class*="rounded-3xl"], [class*="rounded-xl"])[class*="border"]:is([class*="hover:shadow"], [class*="hover:border"], .cursor-pointer):hover {
+  translate: 0 -3px;
+  box-shadow: 0 8px 0 var(--card-edge), 0 18px 30px rgba(15, 23, 42, 0.1);
+}
+:is(div, section)[class*="rounded-"][class*="border"]:is([class~="bg-slate-50"], [class~="bg-amber-50"], [class~="bg-teal-50"]) {
+  box-shadow: 0 3px 0 var(--frame-edge);
+}
+:is(div, section)[class*="rounded-"][class*="border"]:is([class~="bg-emerald-50"]) {
+  box-shadow: 0 3px 0 rgba(6, 95, 70, 0.22);
+}
+
+/* Tout bouton vert = fond vert plein + texte blanc (y compris les anciennes teintes vert pâle) */
+button:is([class~="bg-emerald-50"], [class~="bg-emerald-100"]),
+a:is([class~="bg-emerald-50"], [class~="bg-emerald-100"])[class*="rounded-"][class*="px-"] {
+  background-color: var(--g-face);
+  border-color: var(--g-edge);
+  color: #fff;
+  --edge: var(--g-edge);
+  --glow: var(--g-glow);
+}
+button:is([class~="bg-emerald-50"], [class~="bg-emerald-100"]) *,
+a:is([class~="bg-emerald-50"], [class~="bg-emerald-100"])[class*="rounded-"][class*="px-"] * {
+  color: inherit;
+}
+button:is([class~="bg-emerald-50"], [class~="bg-emerald-100"]):hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+
+/* Titres de section : même style que le bouton bleu en relief (« Participer aux Débats Citoyens ») */
+.section-title {
+  display: inline-block;
+  max-width: 100%;
+  padding: 0.5rem 1.5rem 0.6rem;
+  border-radius: 1rem;
+  font-size: 1.6rem;
+  text-wrap: balance;
+  background-color: var(--b-face);
+  border: 1px solid var(--b-edge);
+  color: #fff !important;
+  text-align: center;
+  line-height: 1.25;
+  box-shadow: 0 5px 0 var(--b-edge), 0 12px 22px var(--b-glow);
+}
+@media (max-width: 640px) {
+  .section-title {
+    padding: 0.45rem 1rem 0.55rem;
+    font-size: 1.25rem;
+  }
+}
+
+/* Barre de navigation : liens en petits boutons en relief (le lien actif reste vert) */
+header nav button:not([class~="bg-emerald-50"]),
+header button[class~="text-slate-700"]:not([class~="bg-white"]):not([class~="bg-emerald-700"]) {
+  background-color: #fff;
+  border: 1px solid #d3e2e9;
+  box-shadow: 0 3px 0 #b4cfda;
+  transition: translate 0.09s ease, box-shadow 0.09s ease, background-color 0.15s ease;
+}
+header nav button:not([class~="bg-emerald-50"]):hover {
+  background-color: #f1f7fa;
+}
+header nav button:not([class~="bg-emerald-50"]):active,
+header button[class~="text-slate-700"]:not([class~="bg-white"]):not([class~="bg-emerald-700"]):active,
+header nav button[class~="bg-emerald-50"]:active {
+  box-shadow: 0 1px 0 #b4cfda;
+  translate: 0 2px;
+}
+
+/* Encadrés sombres (chiffres clés de l'accueil) */
+div[class*="bg-slate-800/40"][class*="rounded-"] {
+  box-shadow: 0 4px 0 rgba(14, 106, 140, 0.55), 0 10px 18px rgba(0, 0, 0, 0.25);
+}
+
+@media print {
+  *,
+  *::before,
+  *::after {
+    box-shadow: none !important;
+    translate: none !important;
+  }
+}
+
+/* ===== Introduction : l'affiche sort de l'écran ===== */
+@keyframes pme-emerge {
+  0% {
+    transform: translateZ(-900px) scale(0.35);
+    opacity: 0;
+    filter: blur(14px);
+  }
+  35% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateZ(0) scale(1);
+    opacity: 1;
+    filter: blur(0);
+  }
+}
+@keyframes pme-grow {
+  from {
+    transform: scale(1);
+  }
+  to {
+    transform: scale(1.045);
+  }
+}
+@keyframes pme-pulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.06);
+  }
+}
+@keyframes pme-cta-in {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.pme-intro-emerge {
+  transform-style: preserve-3d;
+  animation: pme-emerge 3.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.pme-intro-grow {
+  /* continue de grandir après la sortie, puis reste à sa taille maximale */
+  animation: pme-grow 4s ease-out 3.2s both;
+}
+.pme-intro-pulse {
+  animation: pme-pulse 1.8s ease-in-out infinite;
+}
+.pme-intro-cta {
+  animation: pme-cta-in 0.8s ease-out 2.6s both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .pme-intro-emerge,
+  .pme-intro-grow,
+  .pme-intro-pulse,
+  .pme-intro-cta {
+    animation: none;
+  }
+}
+@media print {
+  [role="dialog"][aria-label] {
+    display: none !important;
+  }
+}

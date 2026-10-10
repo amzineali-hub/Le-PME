@@ -1,0 +1,11 @@
+node_modules/
+build/
+dist/
+coverage/
+.DS_Store
+*.log
+.env*
+!.env.example
+
+# Ancien verrou d AI Studio : npm (package-lock.json) fait foi
+bun.lock
