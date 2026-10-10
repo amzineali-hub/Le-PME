@@ -59,32 +59,34 @@ export const IntroSplash: React.FC<IntroSplashProps> = ({ lang }) => {
       />
       <div className="absolute inset-0 bg-slate-950/40" />
 
-      {/* L'affiche sort de l'écran, puis continue de grandir jusqu'à sa taille maximale et s'arrête */}
-      <div className="absolute inset-0 flex items-center justify-center px-1 pt-2 pb-[4.5rem] sm:px-4 sm:pt-4 sm:pb-24 [perspective:1400px]">
-        <div className="pme-intro-emerge h-full max-h-full">
-          <div className="pme-intro-grow h-full">
+      {/* L'affiche et le bouton forment un bloc centré (horizontalement et verticalement).
+          La hauteur de l'affiche s'adapte à la fenêtre (dvh = hauteur visible réelle sur mobile). */}
+      <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 px-3 py-4 [perspective:1400px]">
+        <div className="pme-intro-emerge">
+          <div className="pme-intro-grow">
             <img
               src="/intro-poster.jpg"
               alt={isAr ? 'حزب المغرب الصاعد - السياسة بشكل مختلف' : 'Le Parti du Maroc Émergent - La politique autrement'}
-              className="h-full w-auto max-w-full object-contain rounded-2xl shadow-[0_30px_120px_rgba(0,0,0,0.65)] select-none"
+              className="block w-auto h-auto max-w-[calc(100vw-1.5rem)] max-h-[calc(100vh-9rem)] object-contain rounded-2xl shadow-[0_30px_120px_rgba(0,0,0,0.65)] select-none"
+              style={{ maxHeight: 'calc(100dvh - 9rem)' }}
               draggable={false}
             />
           </div>
         </div>
-      </div>
 
-      <div className="pme-intro-cta absolute bottom-3 sm:bottom-6 inset-x-0 flex justify-center px-4">
-        <button
-          type="button"
-          onClick={enter}
-          disabled={!ready}
-          autoFocus
-          className={`px-8 py-3.5 rounded-full bg-emerald-700 text-white font-extrabold text-base sm:text-lg shadow-xl ${
-            ready ? 'pme-intro-pulse' : 'opacity-70'
-          }`}
-        >
-          {isAr ? 'ادخل إلى الموقع' : 'Entrer sur le site'}
-        </button>
+        <div className="pme-intro-cta flex justify-center">
+          <button
+            type="button"
+            onClick={enter}
+            disabled={!ready}
+            autoFocus
+            className={`px-8 py-3.5 rounded-full bg-emerald-700 text-white font-extrabold text-base sm:text-lg shadow-xl ${
+              ready ? 'pme-intro-pulse' : 'opacity-70'
+            }`}
+          >
+            {isAr ? 'ادخل إلى الموقع' : 'Entrer sur le site'}
+          </button>
+        </div>
       </div>
     </div>
   );
