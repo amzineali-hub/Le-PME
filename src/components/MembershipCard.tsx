@@ -161,8 +161,8 @@ export const MembershipCard: React.FC<MembershipCardProps> = ({
                     : lang === 'ar' ? 'وصل القيد غير مودع' : 'Fiche électorale à déposer'}
                 </span>
               </div>
-              <div className="flex items-center gap-1 text-slate-400">
-                <RotateCw className="w-3 h-3 group-hover:rotate-180 transition-transform duration-500" />
+              <div className="flex items-center gap-1.5 text-white font-bold text-[11px]">
+                <RotateCw className="w-3.5 h-3.5 group-hover:rotate-180 transition-transform duration-500" />
                 <span>{lang === 'ar' ? 'انقر للظهر' : 'Cliquer pour verso'}</span>
               </div>
             </div>
