@@ -20,7 +20,7 @@ export const TRANSLATIONS = {
       news: "Actualités",
       login: "Connexion",
       logout: "Déconnexion",
-      myCard: "Ma Carte Officielle",
+      myCard: "Ma Carte de Membre",
       adminBadge: "Administrateur",
     },
 
@@ -157,8 +157,8 @@ export const TRANSLATIONS = {
     // Membership Card
     card: {
       republic: "Royaume du Maroc",
-      cardTitle: "CARTE OFFICIELLE D'ADHÉRENT",
-      cardTitleAr: "بطاقة الانخراط الرسمية",
+      cardTitle: "CARTE DE MEMBRE FONDATEUR",
+      cardTitleAr: "بطاقة عضو مؤسس",
       partyTitle: "PARTI DU MAROC ÉMERGEANT",
       partyTitleAr: "حزب المغرب الصاعد",
       validity: "Validité : 2026 - 2027",
@@ -448,7 +448,7 @@ export const TRANSLATIONS = {
       news: "المستجدات",
       login: "الدخول",
       logout: "تسجيل الخروج",
-      myCard: "بطاقتي الرسمية",
+      myCard: "بطاقة العضوية الخاصة بي",
       adminBadge: "مسؤول إداري",
     },
 
@@ -585,8 +585,8 @@ export const TRANSLATIONS = {
     // Membership Card
     card: {
       republic: "المملكة المغربية",
-      cardTitle: "بطاقة الانخراط الرسمية",
-      cardTitleAr: "بطاقة الانخراط الرسمية",
+      cardTitle: "بطاقة عضو مؤسس",
+      cardTitleAr: "بطاقة عضو مؤسس",
       partyTitle: "حزب المغرب الصاعد",
       partyTitleAr: "حزب المغرب الصاعد",
       validity: "الصلاحية : 2026 - 2027",
