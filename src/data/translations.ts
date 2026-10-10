@@ -20,7 +20,7 @@ export const TRANSLATIONS = {
       news: "Actualités",
       login: "Connexion",
       logout: "Déconnexion",
-      myCard: "Ma Carte de Membre",
+      myCard: "Ma Carte de Membre fondateur",
       adminBadge: "Administrateur",
     },
 
@@ -179,7 +179,7 @@ export const TRANSLATIONS = {
       since: "Membre depuis le",
       tabs: {
         overview: "Tableau de bord",
-        myCard: "Ma Carte d'Adhérent",
+        myCard: "Ma Carte de Membre fondateur",
         documents: "Documents & Circulaires",
         committee: "Ma Commission Régionale",
         activity: "Mes Contributions & Votes",
@@ -448,7 +448,7 @@ export const TRANSLATIONS = {
       news: "المستجدات",
       login: "الدخول",
       logout: "تسجيل الخروج",
-      myCard: "بطاقة العضوية الخاصة بي",
+      myCard: "بطاقة عضو مؤسس",
       adminBadge: "مسؤول إداري",
     },
 
@@ -607,7 +607,7 @@ export const TRANSLATIONS = {
       since: "عضو منذ",
       tabs: {
         overview: "لوحة القيادة",
-        myCard: "بطاقتي الحزبية",
+        myCard: "بطاقة عضو مؤسس",
         documents: "الوثائق والقرارات",
         committee: "لجنتي الجهوية",
         activity: "مشاركاتي وتصويتاتي",
