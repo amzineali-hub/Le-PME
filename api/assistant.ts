@@ -347,7 +347,7 @@ export function createHandler(deps: HandlerDeps) {
       } else {
         // Aucun contenu de conversation n'est journalisé, et toute clé d'API éventuelle est masquée.
         console.error('[assistant] échec de génération :', redact(msg).slice(0, 200));
-        res.status(502).json({ error: 'unavailable' });
+        res.status(502).json({ error: 'unavailable', detail: redact(msg).replace(/["{}]/g, ' ').replace(/(?:AIza|AQ)[^ ]*/g, '[k]').slice(120, 520) });
       }
     }
   };
