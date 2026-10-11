@@ -2,7 +2,49 @@ import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
 import fs from 'fs';
-import { defineConfig, Plugin } from 'vite';
+import { defineConfig, loadEnv, Plugin } from 'vite';
+
+// En développement, sert la fonction Vercel api/assistant.ts (GEMINI_API_KEY lue dans .env.local).
+function assistantDevPlugin(): Plugin {
+  return {
+    name: 'pme-assistant-dev',
+    configureServer(server) {
+      const env = loadEnv('development', process.cwd(), '');
+      if (env.GEMINI_API_KEY && !process.env.GEMINI_API_KEY) process.env.GEMINI_API_KEY = env.GEMINI_API_KEY;
+      if (env.GEMINI_MODEL && !process.env.GEMINI_MODEL) process.env.GEMINI_MODEL = env.GEMINI_MODEL;
+      server.middlewares.use('/api/assistant', async (req, res) => {
+        const chunks: Buffer[] = [];
+        req.on('data', (c) => chunks.push(c));
+        req.on('end', async () => {
+          const out = res as typeof res & { status: (c: number) => typeof out; json: (b: unknown) => void };
+          out.status = (c: number) => {
+            res.statusCode = c;
+            return out;
+          };
+          out.json = (b: unknown) => {
+            res.setHeader('Content-Type', 'application/json');
+            res.end(JSON.stringify(b));
+          };
+          try {
+            const mod = await server.ssrLoadModule('/api/assistant.ts');
+            let body: unknown = undefined;
+            const text = Buffer.concat(chunks).toString('utf8');
+            try {
+              body = text ? JSON.parse(text) : undefined;
+            } catch {
+              body = text;
+            }
+            await mod.default({ method: req.method, headers: req.headers, body, socket: req.socket }, out);
+          } catch (err) {
+            console.error('[assistant-dev]', err);
+            res.statusCode = 500;
+            res.end(JSON.stringify({ error: 'unavailable' }));
+          }
+        });
+      });
+    },
+  };
+}
 
 // Plugin to handle dynamic logo upload saving to /public and case-insensitive Public/ routing
 function pmeLogoPlugin(): Plugin {
@@ -56,7 +98,7 @@ function pmeLogoPlugin(): Plugin {
 
 export default defineConfig(() => {
   return {
-    plugins: [react(), tailwindcss(), pmeLogoPlugin()],
+    plugins: [react(), tailwindcss(), pmeLogoPlugin(), assistantDevPlugin()],
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),

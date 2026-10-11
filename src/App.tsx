@@ -47,6 +47,7 @@ import { NewsAgenda } from './components/NewsAgenda';
 import { AuthModal } from './components/AuthModal';
 import { AdminPanel } from './components/AdminPanel';
 import { WhatsAppButton } from './components/WhatsAppButton';
+import { AssistantWidget } from './components/AssistantWidget';
 import { IntroSplash } from './components/IntroSplash';
 import { PosterGallery } from './components/PosterGallery';
 import { GALLERY_BANDS } from './data/gallery';
@@ -614,6 +615,7 @@ export default function App() {
 
       <IntroSplash lang={lang} />
       <WhatsAppButton lang={lang} />
+      <AssistantWidget lang={lang} />
 
       {/* Official Party Logo Manager (Logo PME.png) */}
       <LogoUploaderModal
