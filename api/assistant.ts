@@ -347,7 +347,7 @@ export function createHandler(deps: HandlerDeps) {
         console.error('[assistant] échec de génération :', redact(msg).slice(0, 200));
         // Code d'erreur Google seul (ex. « 503 UNAVAILABLE »), sans clé ni contenu, pour faciliter le diagnostic.
         const code = (msg.match(/[45]dd/) ?? [''])[0] + ' ' + (msg.match(/[A-Z][A-Z_]{5,}/) ?? [''])[0];
-        res.status(502).json({ error: 'unavailable', code: code.trim() });
+        res.status(502).json({ error: 'unavailable', code: code.trim(), detail: redact(msg).replace(/["{}]/g, ' ').slice(0, 80) });
       }
     }
   };
