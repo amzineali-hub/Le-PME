@@ -408,3 +408,41 @@ div[class*="bg-slate-800/40"][class*="rounded-"] {
     display: none !important;
   }
 }
+
+/* Compteur de visiteurs : relief 3D, léger flottement et reflet qui passe. */
+.pme-visitors {
+  background: linear-gradient(180deg, #10a56e 0%, #047857 55%, #065f46 100%);
+  border: 1px solid #34d399;
+  box-shadow: 0 8px 0 #064e3b, 0 16px 28px rgba(4, 120, 87, 0.45), inset 0 2px 0 rgba(255, 255, 255, 0.35), inset 0 -3px 6px rgba(0, 0, 0, 0.25);
+  animation: pme-visitors-float 3.2s ease-in-out infinite;
+  position: relative;
+  overflow: hidden;
+}
+.pme-visitors::after {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 -60%;
+  width: 40%;
+  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.35), transparent);
+  transform: skewX(-20deg);
+  animation: pme-visitors-shine 4.5s ease-in-out infinite;
+}
+.pme-visitors-eye {
+  animation: pme-visitors-blink 4s ease-in-out infinite;
+  transform-origin: center;
+}
+@keyframes pme-visitors-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
+}
+@keyframes pme-visitors-shine {
+  0%, 55% { left: -60%; }
+  100% { left: 130%; }
+}
+@keyframes pme-visitors-blink {
+  0%, 92%, 100% { transform: scaleY(1); }
+  96% { transform: scaleY(0.1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pme-visitors, .pme-visitors::after, .pme-visitors-eye { animation: none; }
+}
