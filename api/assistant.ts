@@ -237,7 +237,7 @@ export function originAllowed(req: ApiRequest, env: Record<string, string | unde
 }
 
 /** Masque les clés d'API (format Google « AIza… ») avant toute écriture dans les journaux. */
-export const redact = (s: string): string => s.replace(/AIza[0-9A-Za-z_-]{6,}/g, '[clé masquée]');
+export const redact = (s: string): string => s.replace(/(?:AIza|AQ.)[0-9A-Za-z_.-]{6,}/g, '[clé masquée]').replace(/api_key:S+/gi, 'api_key:[clé masquée]');
 
 export function clientIp(req: ApiRequest): string {
   const fwd = headerOf(req, 'x-forwarded-for').split(',')[0].trim();
@@ -343,11 +343,11 @@ export function createHandler(deps: HandlerDeps) {
       if (msg.includes('not_configured')) {
         res.status(503).json({ error: 'not_configured' });
       } else if (/429|quota|RESOURCE_EXHAUSTED|rate/i.test(msg)) {
-        res.status(503).json({ error: 'busy', detail: redact(msg).replace(/["{}]/g, ' ').slice(0, 450) });
+        res.status(503).json({ error: 'busy' });
       } else {
         // Aucun contenu de conversation n'est journalisé, et toute clé d'API éventuelle est masquée.
         console.error('[assistant] échec de génération :', redact(msg).slice(0, 200));
-        res.status(502).json({ error: 'unavailable', detail: redact(msg).replace(/["{}]/g, ' ').slice(0, 450) });
+        res.status(502).json({ error: 'unavailable' });
       }
     }
   };
