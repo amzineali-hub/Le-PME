@@ -11,3 +11,7 @@ export const PARTY_EMAIL = 'developpementistes@gmail.com';
 
 // Page Facebook du parti
 export const PARTY_FACEBOOK_URL = 'https://www.facebook.com/cyramaliac/';
+
+// Compteur de visiteurs : valeur affichée au premier visiteur enregistré (les visiteurs d'avant la mise en place du compteur).
+// Affiché = VISITORS_START - 1 + visiteurs réellement comptés.
+export const VISITORS_START = 1250;
