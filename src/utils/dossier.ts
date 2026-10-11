@@ -31,8 +31,8 @@ export const DOC_LABELS: Record<DocKind, { fr: string; ar: string; hintFr: strin
   electoral: {
     fr: 'Fiche d’inscription sur les listes électorales',
     ar: 'وصل القيد في اللوائح الانتخابية',
-    hintFr: 'Capture ou PDF de la page « Vérifiez votre inscription » du ministère.',
-    hintAr: 'لقطة أو PDF لصفحة «تأكدوا من تسجيلكم» الخاصة بوزارة الداخلية.',
+    hintFr: 'Capture de la page du ministère, du SMS de réponse (2727) ou de l’appli MonBV.',
+    hintAr: 'لقطة لصفحة الوزارة أو لرسالة الرد (2727) أو لتطبيق MonBV.',
   },
 };
 

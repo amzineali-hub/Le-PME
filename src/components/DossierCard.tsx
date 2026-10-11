@@ -177,8 +177,8 @@ export const DossierCard: React.FC<DossierCardProps> = ({ member, lang, onMember
 
       <p className="text-[11px] text-slate-600">
         {isAr
-          ? 'تُقبل لقطة شاشة أو ملف PDF (700 كيلوبايت كحد أقصى) لوصل القيد، وتحوَّل اللقطة تلقائياً إلى PDF. لا يطلع على الوثائق إلا المسؤولون المخولون.'
-          : 'Pour la fiche électorale : PDF ou capture d’écran (700 Ko max), convertie automatiquement en PDF. Seuls les responsables habilités consultent ces documents.'}
+          ? 'وصل القيد: لقطة لصفحة الموقع، أو لرسالة الرد على 2727، أو لتطبيق MonBV، أو ملف PDF (700 كيلوبايت كحد أقصى). تحوَّل اللقطة تلقائياً إلى PDF. لا يطلع على الوثائق إلا المسؤولون المخولون.'
+          : 'Fiche électorale : capture de la page du ministère, du SMS de réponse (2727) ou de l’appli MonBV, ou PDF (700 Ko max). La capture est convertie automatiquement en PDF. Seuls les responsables habilités consultent ces documents.'}
       </p>
       {error && <p className="text-xs font-semibold text-red-700">{error}</p>}
     </div>

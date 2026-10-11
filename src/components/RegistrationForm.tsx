@@ -764,6 +764,27 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({
                 <span>{isAr ? 'فتح www.listeselectorales.ma والتحقق من قيدي' : 'Ouvrir www.listeselectorales.ma et vérifier mon inscription'}</span>
               </a>
 
+              <div className="rounded-xl bg-sky-50 border border-sky-200 p-3 text-xs text-sky-900 leading-relaxed space-y-1">
+                <div className="font-bold">{isAr ? 'الموقع لا يشتغل؟ هناك طريقتان أخريان:' : 'Le site ne répond pas ? Deux autres moyens :'}</div>
+                <ul className="list-disc ps-5 space-y-0.5">
+                  <li>
+                    {isAr
+                      ? 'أرسل رقم بطاقتك الوطنية في رسالة قصيرة مجانية إلى الرقم 2727، ثم التقط صورة لشاشة الرسالة التي تصلك.'
+                      : 'Envoyez votre numéro de CIN par SMS gratuit au 2727, puis faites une capture d’écran du SMS reçu.'}
+                  </li>
+                  <li>
+                    {isAr
+                      ? 'أو حمّل تطبيق MonBV والتقط صورة للشاشة التي تظهر مكتب التصويت.'
+                      : 'Ou installez l’application MonBV et faites une capture de l’écran qui affiche votre bureau de vote.'}
+                  </li>
+                </ul>
+                <div>
+                  {isAr
+                    ? 'لقطة الرسالة أو التطبيق تُقبل كوصل قيد، ويتحقق منها منسق جهتك.'
+                    : 'La capture du SMS ou de l’application est acceptée comme preuve ; votre coordinateur régional la contrôle.'}
+                </div>
+              </div>
+
               <label className="block cursor-pointer rounded-2xl border-2 border-dashed border-slate-300 hover:border-emerald-500 bg-slate-50 p-6 text-center transition-colors">
                 {proofBusy ? (
                   <Loader2 className="w-8 h-8 text-emerald-600 animate-spin mx-auto" />
@@ -776,8 +797,8 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({
                   {proof
                     ? proof.name
                     : isAr
-                    ? 'اضغط لاختيار لقطة الشاشة (أو ملف PDF)'
-                    : 'Touchez pour choisir votre capture d’écran (ou un PDF)'}
+                    ? 'اضغط لاختيار لقطة الشاشة (موقع أو رسالة أو تطبيق)'
+                    : 'Touchez pour choisir votre capture d’écran (site, SMS ou appli) ou un PDF'}
                 </div>
                 <div className="text-[11px] text-slate-500 mt-1">
                   {isAr ? 'تتحول اللقطة تلقائياً إلى PDF (700 كيلوبايت كحد أقصى)' : 'La capture est convertie automatiquement en PDF (700 Ko maximum)'}
