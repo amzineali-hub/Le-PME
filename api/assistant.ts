@@ -255,6 +255,7 @@ export const geminiGenerate: Generate = async ({ system, messages, maxOutputToke
   // et peut être surchargé indépendamment des autres.
   const models = [...new Set([process.env.GEMINI_MODEL || 'gemini-flash-latest', 'gemini-2.5-flash', 'gemini-2.5-flash-lite'])];
   let lastErr: unknown;
+  const trail: string[] = [];
   for (const model of models) {
     try {
       const response = await ai.models.generateContent({
@@ -270,10 +271,11 @@ export const geminiGenerate: Generate = async ({ system, messages, maxOutputToke
       return (response.text ?? '').trim();
     } catch (err) {
       lastErr = err;
+      trail.push(model + ': ' + redact(String((err as Error)?.message ?? err)).replace(/["{}]/g, ' ').slice(0, 110));
       console.error(`[assistant] modèle ${model} en échec :`, redact(String((err as Error)?.message ?? err)).slice(0, 300));
     }
   }
-  throw lastErr;
+  throw new Error(trail.join(' || '));
 };
 
 // ---------------------------------------------------------------------------
@@ -347,7 +349,7 @@ export function createHandler(deps: HandlerDeps) {
         console.error('[assistant] échec de génération :', redact(msg).slice(0, 200));
         // Code d'erreur Google seul (ex. « 503 UNAVAILABLE »), sans clé ni contenu, pour faciliter le diagnostic.
         const code = (msg.match(/[45]dd/) ?? [''])[0] + ' ' + (msg.match(/[A-Z][A-Z_]{5,}/) ?? [''])[0];
-        res.status(502).json({ error: 'unavailable', code: code.trim(), detail: redact(msg).replace(/["{}]/g, ' ').slice(0, 80) });
+        res.status(502).json({ error: 'unavailable', code: code.trim(), detail: redact(msg).replace(/["{}]/g, ' ').slice(0, 450) });
       }
     }
   };
