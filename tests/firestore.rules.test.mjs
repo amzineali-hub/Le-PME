@@ -1,5 +1,5 @@
 /**
- * Tests des règles de sécurité Firestore (66 cas : inscription, profil, coordinateurs, forum, sondages).
+ * Tests des règles de sécurité Firestore (77 cas : inscription, profil, coordinateurs, forum, sondages).
  *
  * Lancer (Java 11+ requis par l'émulateur) :
  *   npm i --no-save firebase-tools @firebase/rules-unit-testing
@@ -8,7 +8,7 @@
  */
 import { initializeTestEnvironment, assertSucceeds, assertFails } from '@firebase/rules-unit-testing';
 import {
-  doc, getDoc, getDocs, setDoc, updateDoc, collection, query, where, writeBatch, increment, serverTimestamp, addDoc,
+  doc, getDoc, getDocs, setDoc, updateDoc, collection, query, where, writeBatch, increment, serverTimestamp, addDoc, deleteDoc,
 } from 'firebase/firestore';
 import fs from 'fs';
 
@@ -164,6 +164,20 @@ await t('membre ne crée pas de sondage', () => no(addDoc(collection(as('alice')
 await t('admin crée un sondage', () => ok(addDoc(collection(as('admin'), 'polls'), { questionFr: 'x', options: [], counts: {}, totalVotes: 0, status: 'open', type: 'consultation' })));
 await t('admin clôt un sondage', () => ok(updateDoc(doc(as('admin'), 'polls', 'p1'), { status: 'closed' })));
 await t('membre ne clôt pas un sondage', () => no(updateDoc(doc(as('alice'), 'polls', 'p1'), { status: 'closed' })));
+
+// ===================== COMPTEUR DE VISITEURS =====================
+const visits = () => doc(anon(), 'stats', 'visits');
+await t('visiteur : création du compteur à 1/1', () => ok(setDoc(visits(), { total: 1, unique: 1 })));
+await t('visiteur : création refusée si total truqué', () => no(setDoc(doc(anon(), 'stats', 'autre'), { total: 500, unique: 1 })));
+await t('lecture publique du compteur', () => ok(getDoc(visits())));
+await t('visiteur : +1 visite et +1 visiteur unique', () => ok(updateDoc(visits(), { total: increment(1), unique: increment(1) })));
+await t('visiteur : +1 visite seule (appareil déjà vu)', () => ok(updateDoc(visits(), { total: increment(1), unique: increment(0) })));
+await t('visiteur : +2 visites refusé', () => no(updateDoc(visits(), { total: increment(2), unique: increment(0) })));
+await t('visiteur : +2 uniques refusé', () => no(updateDoc(visits(), { total: increment(1), unique: increment(2) })));
+await t('visiteur : baisse du compteur refusée', () => no(updateDoc(visits(), { total: increment(-1), unique: increment(0) })));
+await t('visiteur : remise à zéro refusée', () => no(setDoc(visits(), { total: 1, unique: 1 })));
+await t('visiteur : champ supplémentaire refusé', () => no(updateDoc(visits(), { total: increment(1), unique: increment(0), note: 'x' })));
+await t('visiteur : suppression refusée', () => no(deleteDoc(visits())));
 
 // ===================== ACCÈS INTERDITS =====================
 await t('collection inconnue interdite', () => no(getDocs(collection(as('admin'), 'secrets'))));

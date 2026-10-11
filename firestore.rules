@@ -225,6 +225,21 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    // ---------------------------------------------------------------------
+    // Compteur de visiteurs : un seul document public, lisible par tous. Les visiteurs (même non connectés)
+    // ne peuvent que l'augmenter, de 1 visite à la fois et d'au plus 1 visiteur unique : aucune autre donnée.
+    // ---------------------------------------------------------------------
+    match /stats/visits {
+      allow read: if true;
+      allow create: if request.resource.data.keys().hasOnly(['total', 'unique'])
+        && request.resource.data.total == 1
+        && request.resource.data.unique == 1;
+      allow update: if request.resource.data.keys().hasOnly(['total', 'unique'])
+        && request.resource.data.total == resource.data.total + 1
+        && request.resource.data.unique in [resource.data.unique, resource.data.unique + 1];
+      allow delete: if false;
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }

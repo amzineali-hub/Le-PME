@@ -7,6 +7,7 @@ import { ShieldCheck, Mail, Phone, MapPin, Heart } from 'lucide-react';
 import { PARTY_EMAIL, PARTY_FACEBOOK_URL, PARTY_PHONE_DISPLAY, PARTY_PHONE_E164 } from '../data/siteStats';
 import { FacebookIcon } from './FacebookIcon';
 import { WhatsAppIcon } from './WhatsAppIcon';
+import { VisitorCounter } from './VisitorCounter';
 
 interface FooterProps {
   lang: Language;
@@ -165,6 +166,7 @@ export const Footer: React.FC<FooterProps> = ({ lang, onSelectTab, onSelectRegio
         {/* Copyright Bar */}
         <div className="pt-8 border-t border-slate-900 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500 gap-3">
           <div>{t.footer.copyright}</div>
+          <VisitorCounter lang={lang} />
           <div className="flex items-center gap-1 text-[11px]">
             <span>Plateforme Citoyenne du Parti du Maroc Émergeant</span>
           </div>
