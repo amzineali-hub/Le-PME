@@ -2,7 +2,7 @@ import React from 'react';
 import { DocStatus, Language, Member } from '../types';
 import { printRegistrationSheet } from '../utils/registrationSheet';
 import { DOC_KINDS, DOC_LABELS, DocKind, docStatusOf, dossierProgress } from '../utils/dossier';
-import { CheckCircle2, Download, ExternalLink, FileQuestion, Printer, XCircle } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Download, ExternalLink, FileQuestion, Printer, XCircle } from 'lucide-react';
 
 interface DossierCardProps {
   member: Member;
@@ -98,22 +98,33 @@ export const DossierCard: React.FC<DossierCardProps> = ({ member, lang }) => {
       </ol>
 
       {!complete && (
-        <div className="rounded-xl bg-white/70 border border-amber-200 p-3 space-y-1.5">
-          <div className="flex items-center justify-between gap-2">
-            <div className="text-xs font-bold text-slate-900">{isAr ? 'كيف تستكمل ملفك الورقي؟' : 'Comment compléter votre dossier papier ?'}</div>
+        <div id="dossier-papier" className="urgent-panel p-4 sm:p-5 space-y-3 scroll-mt-28">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex flex-wrap items-center gap-2.5">
+              <span className="urgent-badge inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-black tracking-wider">
+                <AlertTriangle className="w-4 h-4" />
+                <span>{isAr ? 'عاجل' : 'URGENT'}</span>
+              </span>
+              <h3 className="text-base sm:text-lg font-black text-slate-900">
+                {isAr ? 'كيف تستكمل ملفك الورقي؟' : 'Comment compléter votre dossier papier ?'}
+              </h3>
+            </div>
             <a
               href="https://www.listeselectorales.ma"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-800 underline"
+              className="inline-flex items-center gap-1 text-xs font-extrabold text-emerald-800 underline"
             >
-              <ExternalLink className="w-3 h-3" />
+              <ExternalLink className="w-3.5 h-3.5" />
               <span>listeselectorales.ma</span>
             </a>
           </div>
-          <ol className="list-decimal ps-5 text-xs text-slate-700 space-y-1">
-            {steps.map((x) => (
-              <li key={x}>{x}</li>
+          <ol className="space-y-2">
+            {steps.map((x, i) => (
+              <li key={x} className="flex items-start gap-3">
+                <span className="w-6 h-6 shrink-0 rounded-full bg-red-700 text-white text-xs font-black flex items-center justify-center">{i + 1}</span>
+                <span className="text-sm font-bold text-slate-900 leading-snug">{x}</span>
+              </li>
             ))}
           </ol>
         </div>

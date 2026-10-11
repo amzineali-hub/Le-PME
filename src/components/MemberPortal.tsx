@@ -5,6 +5,7 @@ import { TRANSLATIONS } from '../data/translations';
 import { PARTY_DOCUMENTS } from '../data/mockData';
 import { MembershipCard } from './MembershipCard';
 import { DossierCard } from './DossierCard';
+import { UrgentReminder } from './UrgentReminder';
 import { isDossierComplete } from '../utils/dossier';
 import { Member as MemberType } from '../types';
 import { ProfileEditor } from './ProfileEditor';
@@ -141,6 +142,7 @@ export const MemberPortal: React.FC<MemberPortalProps> = ({
       </div>
 
       <DossierCard member={member} lang={lang} />
+      <UrgentReminder member={member} lang={lang} />
 
       {editingProfile && (
         <ProfileEditor
