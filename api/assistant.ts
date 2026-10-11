@@ -253,7 +253,7 @@ export const geminiGenerate: Generate = async ({ system, messages, maxOutputToke
   const ai = new GoogleGenAI({ apiKey });
   // Modèle principal puis modèles de secours : sur l'offre gratuite, chaque modèle a son propre quota
   // et peut être surchargé indépendamment des autres.
-  const models = [...new Set([process.env.GEMINI_MODEL || 'gemini-flash-latest', 'gemini-2.5-flash', 'gemini-2.5-flash-lite'])];
+  const models = [...new Set([process.env.GEMINI_MODEL || 'gemini-flash-latest', 'gemini-flash-lite-latest'])];
   let lastErr: unknown;
   const trail: string[] = [];
   for (const model of models) {
