@@ -345,7 +345,9 @@ export function createHandler(deps: HandlerDeps) {
       } else {
         // Aucun contenu de conversation n'est journalisé, et toute clé d'API éventuelle est masquée.
         console.error('[assistant] échec de génération :', redact(msg).slice(0, 200));
-        res.status(502).json({ error: 'unavailable' });
+        // Code d'erreur Google seul (ex. « 503 UNAVAILABLE »), sans clé ni contenu, pour faciliter le diagnostic.
+        const code = (msg.match(/[45]dd/) ?? [''])[0] + ' ' + (msg.match(/[A-Z][A-Z_]{5,}/) ?? [''])[0];
+        res.status(502).json({ error: 'unavailable', code: code.trim() });
       }
     }
   };
