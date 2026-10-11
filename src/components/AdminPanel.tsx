@@ -1,10 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ElectoralStatus, Language, Member } from '../types';
 import { MOROCCAN_REGIONS } from '../data/regions';
-import { DOC_KINDS, DOC_LABELS, DocKind, POSTAL_KINDS, docStatusOf, dossierProgress, dossierState, isPostal } from '../utils/dossier';
+import { DOC_KINDS, DOC_LABELS, DocKind, docStatusOf, dossierProgress, dossierState } from '../utils/dossier';
 import {
   describeError,
-  fetchElectoralProof,
   listMembersForRegions,
   setMemberRole,
   listAllMembers,
@@ -36,7 +35,7 @@ const STATUS_META: Record<ElectoralStatus, { fr: string; ar: string; tone: strin
   submitted: { fr: 'À contrôler', ar: 'للمراجعة', tone: 'bg-amber-100 text-amber-900 border-amber-300', icon: Clock },
   verified: { fr: 'Dossier complet', ar: 'ملف مكتمل', tone: 'bg-emerald-100 text-emerald-900 border-emerald-300', icon: CheckCircle2 },
   rejected: { fr: 'À corriger', ar: 'للتصحيح', tone: 'bg-red-100 text-red-900 border-red-300', icon: XCircle },
-  none: { fr: 'Incomplet', ar: 'ناقص', tone: 'bg-slate-100 text-slate-700 border-slate-300', icon: FileQuestion },
+  none: { fr: 'Dossier incomplet', ar: 'ملف ناقص', tone: 'bg-slate-100 text-slate-700 border-slate-300', icon: FileQuestion },
 };
 
 const statusOf = (m: Member): ElectoralStatus => dossierState(m);
@@ -51,7 +50,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser, lang }) => 
   const [members, setMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [filter, setFilter] = useState<Filter>('submitted');
+  const [filter, setFilter] = useState<Filter>('none');
   const [regionFilter, setRegionFilter] = useState('all');
   const [query, setQuery] = useState('');
   const [selected, setSelected] = useState<Member | null>(null);
@@ -118,7 +117,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser, lang }) => 
     setSelected((s) => (s && s.id === uid ? { ...s, ...patch } : s));
   };
 
-  const filters: Filter[] = ['submitted', 'verified', 'rejected', 'none', 'all'];
+  const filters: Filter[] = ['none', 'rejected', 'verified', 'all'];
 
   return (
     <div className="w-full max-w-6xl mx-auto space-y-6">
@@ -142,7 +141,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser, lang }) => 
       </div>
 
       {/* Compteurs / filtres de statut */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {filters.map((f) => {
           const meta = f === 'all' ? null : STATUS_META[f];
           const active = filter === f;
@@ -263,8 +262,6 @@ interface MemberDetailProps {
 
 const MemberDetail: React.FC<MemberDetailProps> = ({ member, lang, onClose, onDecided, onRegionChanged, canAdmin, selfId }) => {
   const isAr = lang === 'ar';
-  const [proof, setProof] = useState<{ dataUrl: string; mime: string; name: string } | null>(null);
-  const [proofLoading, setProofLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [badge, setBadge] = useState(member.contributionBadge || '');
@@ -277,27 +274,8 @@ const MemberDetail: React.FC<MemberDetailProps> = ({ member, lang, onClose, onDe
   const [regionsSel, setRegionsSel] = useState<string[]>(member.coordinatorRegions ?? []);
   const [roleSaved, setRoleSaved] = useState(false);
   const region = MOROCCAN_REGIONS.find((r) => r.id === member.regionId);
-  const firstToCheck = DOC_KINDS.find((k) => docStatusOf(member, k) === 'submitted') ?? DOC_KINDS[0];
-  const [kind, setKind] = useState<DocKind>(firstToCheck);
+  const [kind, setKind] = useState<DocKind>(DOC_KINDS.find((k) => docStatusOf(member, k) !== 'verified') ?? DOC_KINDS[0]);
   const status = docStatusOf(member, kind);
-
-  useEffect(() => {
-    let cancelled = false;
-    setProofLoading(true);
-    setProof(null);
-    if (isPostal(kind)) {
-      // Pièce papier : rien n'est stocké en ligne, le coordinateur la contrôle en main propre.
-      setProofLoading(false);
-      return;
-    }
-    fetchElectoralProof(member.id)
-      .then((p) => !cancelled && setProof(p))
-      .catch((err) => !cancelled && setError(describeError(err, isAr)))
-      .finally(() => !cancelled && setProofLoading(false));
-    return () => {
-      cancelled = true;
-    };
-  }, [member.id, kind, isAr]);
 
   const decide = async (decision: ElectoralStatus, kinds: DocKind[] = [kind]) => {
     setBusy(true);
@@ -545,37 +523,22 @@ const MemberDetail: React.FC<MemberDetailProps> = ({ member, lang, onClose, onDe
                 );
               })}
             </div>
-            {isPostal(kind) ? (
-              <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 text-sm text-amber-900 space-y-2">
-                <p>
-                  {isAr
-                    ? 'وثيقة ورقية: يتم التحقق منها بتسلم النسخة الأصلية من المنخرط. لا يوجد ملف مخزن على الإنترنت.'
-                    : 'Pièce papier : elle se contrôle en main propre sur l’original remis par l’adhérent. Aucun fichier n’est stocké en ligne.'}
-                </p>
-                <p className="text-xs">
-                  {isAr
-                    ? 'تحقق من أن الاسم ورقم البطاقة الوطنية والتوقيع المصادق عليه تطابق بيانات الملف أعلاه.'
-                    : 'Vérifiez que le nom, le numéro de CIN et la signature légalisée correspondent aux données de la fiche ci-dessus.'}
-                </p>
-              </div>
-            ) : proofLoading ? (
-              <Loader2 className="w-6 h-6 text-emerald-600 animate-spin" />
-            ) : !proof ? (
-              <p className="text-sm text-slate-500 p-4 rounded-xl bg-slate-50 border border-slate-200">
-                {isAr ? 'لم يودع المنخرط هذه الوثيقة بعد.' : 'L’adhérent n’a pas encore déposé cette pièce.'}
+            <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 text-sm text-amber-900 space-y-2">
+              <p>
+                {isAr
+                  ? 'وثيقة ورقية: يتم التحقق منها بتسلم النسخة الأصلية من المنخرط. لا يوجد ملف مخزن على الإنترنت.'
+                  : 'Pièce papier : elle se contrôle en main propre sur l’original remis par l’adhérent. Aucun fichier n’est stocké en ligne.'}
               </p>
-            ) : proof.mime === 'application/pdf' ? (
-              <div className="space-y-2">
-                <iframe src={proof.dataUrl} title={proof.name} className="w-full h-[55vh] rounded-xl border border-slate-200" />
-                <a href={proof.dataUrl} download={proof.name} className="text-sm font-semibold text-emerald-700 hover:underline">
-                  {isAr ? 'تحميل الملف' : 'Télécharger le PDF'} ({proof.name})
-                </a>
-              </div>
-            ) : (
-              <a href={proof.dataUrl} target="_blank" rel="noopener noreferrer">
-                <img src={proof.dataUrl} alt={proof.name} className="w-full max-h-[60vh] object-contain rounded-xl border border-slate-200 bg-slate-50" />
-              </a>
-            )}
+              <p className="text-xs">
+                {kind === 'electoral'
+                  ? isAr
+                    ? 'قارن الاسم ورقم البطاقة الوطنية ومكتب التصويت في اللقطة المطبوعة مع بيانات الملف. عند الشك، أعد التحقق عبر الرقم 2727.'
+                    : 'Comparez le nom, la CIN et le bureau de vote de la capture imprimée avec la fiche ci-dessus. En cas de doute, refaites la vérification par SMS au 2727.'
+                  : isAr
+                  ? 'تحقق من أن الاسم ورقم البطاقة الوطنية والتوقيع المصادق عليه تطابق بيانات الملف أعلاه.'
+                  : 'Vérifiez que le nom, le numéro de CIN et la signature légalisée correspondent aux données de la fiche ci-dessus.'}
+              </p>
+            </div>
           </div>
 
           {error && <p className="text-sm font-semibold text-red-600">{error}</p>}
@@ -586,13 +549,13 @@ const MemberDetail: React.FC<MemberDetailProps> = ({ member, lang, onClose, onDe
             {isAr ? STATUS_META[status].ar : STATUS_META[status].fr}
           </span>
           <div className="flex flex-wrap gap-2">
-            {selfId !== member.id && POSTAL_KINDS.some((k) => docStatusOf(member, k) !== 'verified') && (
+            {selfId !== member.id && DOC_KINDS.some((k) => docStatusOf(member, k) !== 'verified') && (
               <button
-                onClick={() => decide('verified', POSTAL_KINDS)}
+                onClick={() => decide('verified', DOC_KINDS)}
                 disabled={busy}
                 className="px-4 py-2.5 rounded-xl bg-slate-900 text-white text-sm font-bold disabled:opacity-60"
               >
-                {isAr ? 'استلام الوثائق الورقية الثلاث (مطابقة)' : 'Reçu en main : 3 pièces papier conformes'}
+                {isAr ? 'استلام الملف كاملاً (4 وثائق مطابقة)' : 'Dossier complet reçu : 4 pièces conformes'}
               </button>
             )}
             {status !== 'rejected' && (
@@ -601,7 +564,7 @@ const MemberDetail: React.FC<MemberDetailProps> = ({ member, lang, onClose, onDe
                 disabled={busy}
                 className="px-4 py-2.5 rounded-xl border border-red-300 text-red-700 hover:bg-red-50 text-sm font-bold disabled:opacity-60"
               >
-                {isAr ? 'رفض الوثيقة' : 'Refuser cette pièce'}
+                {isAr ? 'وثيقة غير مطابقة' : 'Pièce non conforme'}
               </button>
             )}
             {status === 'verified' && (
@@ -616,8 +579,7 @@ const MemberDetail: React.FC<MemberDetailProps> = ({ member, lang, onClose, onDe
             {status !== 'verified' && (
               <button
                 onClick={() => decide('verified')}
-                disabled={busy || (!isPostal(kind) && !proof)}
-                title={!isPostal(kind) && !proof ? (isAr ? 'لا توجد وثيقة' : 'Aucune pièce à valider') : undefined}
+                disabled={busy}
                 className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-sm font-bold disabled:opacity-50"
               >
                 {busy && <Loader2 className="w-4 h-4 animate-spin" />}

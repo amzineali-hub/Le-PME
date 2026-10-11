@@ -1,5 +1,5 @@
 /**
- * Tests des règles de sécurité Firestore (68 cas : inscription, profil, coordinateurs, forum, sondages).
+ * Tests des règles de sécurité Firestore (66 cas : inscription, profil, coordinateurs, forum, sondages).
  *
  * Lancer (Java 11+ requis par l'émulateur) :
  *   npm i --no-save firebase-tools @firebase/rules-unit-testing
@@ -26,7 +26,7 @@ const base = (uid, regionId, extra = {}) => ({
   email: uid + '@x.ma', phone: '+2126', birthDate: '1980-01-01', gender: 'M', regionId, province: 'Rabat', commune: 'Rabat',
   profession: 'x', photoUrl: 'data:image/jpeg;base64,AAAA', commissionInterest: 'x', joinedDate: '10/10/2026', validUntil: '31/12/2027',
   contributionBadge: 'Adhérent Émergeant', role: 'member', status: 'pending_verification', isElectorallyVerified: false,
-  isEmailVerified: false, electoralStatus: 'submitted', electoralProofName: 'c.pdf', ...extra,
+  isEmailVerified: false, electoralStatus: 'none', ...extra,
 });
 const pdf = (n = 1000) => ({ dataUrl: 'data:application/pdf;base64,' + 'A'.repeat(n), mime: 'application/pdf', name: 'c.pdf' });
 
@@ -38,7 +38,6 @@ await env.withSecurityRulesDisabled(async (ctx) => {
   await setDoc(doc(db, 'members', 'alice'), base('alice', A));
   await setDoc(doc(db, 'members', 'bob'), base('bob', B));
   await setDoc(doc(db, 'members', 'full'), base('full', A, { electoralStatus: 'verified', engagementStatus: 'verified', cinRectoStatus: 'verified', cinVersoStatus: 'verified' }));
-  for (const u of ['alice', 'bob']) await setDoc(doc(db, 'proofs', u), { ...pdf(), uploadedAt: new Date() });
   await setDoc(doc(db, 'debates', 'd1'), { category: 'economy', titleFr: 't', titleAr: '', contentFr: 'c', contentAr: '', tags: [], authorId: 'bob', authorName: 'Ali bob', authorRegion: 'Rabat', authorRole: 'Membre Adhérent PME', createdAt: new Date(), votesFor: 0, votesAgainst: 0, votesNeutral: 0, commentsCount: 0, status: 'open' });
   await setDoc(doc(db, 'polls', 'p1'), { questionFr: 'q', options: [{ id: 'o-1', textFr: 'a', textAr: 'a' }, { id: 'o-2', textFr: 'b', textAr: 'b' }], counts: { 'o-1': 0, 'o-2': 0 }, totalVotes: 0, status: 'open', type: 'consultation', createdAtTs: new Date() });
   await setDoc(doc(db, 'polls', 'p2'), { questionFr: 'q', options: [{ id: 'o-1', textFr: 'a', textAr: 'a' }], counts: { 'o-1': 0 }, totalVotes: 0, status: 'open', type: 'internal_election', createdAtTs: new Date() });
@@ -57,21 +56,21 @@ const ok = (p) => assertSucceeds(p);
 const no = (p) => assertFails(p);
 
 // ===================== INSCRIPTION =====================
-const signup = (uid, over = {}, { lock = uid, cinOver, noProof = false } = {}) => {
+const signup = (uid, over = {}, { lock = uid, cinOver } = {}) => {
   const db = as(uid);
   const data = { ...base(uid, A, { cin: cinOver ?? 'ZZ' + (200000 + uid.length) }), createdAt: serverTimestamp(), ...over };
   const batch = writeBatch(db);
   batch.set(doc(db, 'members', uid), data);
   batch.set(doc(db, 'cins', data.cin), { uid: lock });
-  if (!noProof) batch.set(doc(db, 'proofs', uid), { ...pdf(), uploadedAt: serverTimestamp() });
   return batch.commit();
 };
-await t('inscription valide (fiche + CIN + fiche électorale)', () => ok(signup('newbie1', {}, { cinOver: 'ZZ100001' })));
+await t('inscription valide (fiche + verrou CIN)', () => ok(signup('newbie1', {}, { cinOver: 'ZZ100001' })));
 await t('inscription refusée : titre « Fondateur » auto-attribué', () => no(signup('newbie2', { contributionBadge: 'Fondateur' }, { cinOver: 'ZZ100002' })));
 await t('inscription refusée : pièce « validée » injectée', () => no(signup('newbie3', { engagementStatus: 'verified' }, { cinOver: 'ZZ100003' })));
 await t('inscription refusée : rôle admin', () => no(signup('newbie4', { role: 'admin' }, { cinOver: 'ZZ100004' })));
 await t('inscription refusée : coordinatorRegions injecté', () => no(signup('newbie5', { coordinatorRegions: [A] }, { cinOver: 'ZZ100005' })));
-await t('inscription refusée : sans fiche électorale', () => no(signup('newbie6', {}, { cinOver: 'ZZ100006', noProof: true })));
+await t('inscription refusée : fiche électorale déjà « validée »', () => no(signup('newbie6', { electoralStatus: 'verified' }, { cinOver: 'ZZ100006' })));
+await t('inscription refusée : champ inconnu (stockage de fichier)', () => no(signup('newbie6b', { electoralProofName: 'x.pdf' }, { cinOver: 'ZZ100016' })));
 await t('inscription refusée : verrou CIN au nom d\'un autre', () => no(signup('newbie7', {}, { cinOver: 'ZZ100007', lock: 'bob' })));
 await t('inscription refusée : CIN déjà inscrite', () => no(signup('newbie8', {}, { cinOver: 'ZZ100001' })));
 await t('inscription refusée : CIN au mauvais format', () => no(signup('newbie9', {}, { cinOver: 'zz-1' })));
@@ -87,8 +86,7 @@ await t('adhérent ne peut pas se faire coordinateur', () => no(updateDoc(doc(as
 await t('adhérent lit sa propre fiche', () => ok(getDoc(doc(as('alice'), 'members', 'alice'))));
 await t('adhérent ne lit pas la fiche d\'un autre', () => no(getDoc(doc(as('alice'), 'members', 'bob'))));
 await t('adhérent ne liste pas les membres', () => no(getDocs(collection(as('alice'), 'members'))));
-await t('adhérent lit sa fiche électorale', () => ok(getDoc(doc(as('alice'), 'proofs', 'alice'))));
-await t('adhérent ne lit pas la fiche d\'un autre', () => no(getDoc(doc(as('alice'), 'proofs', 'bob'))));
+await t('plus aucune pièce stockée : collection proofs fermée', () => no(getDoc(doc(as('alice'), 'proofs', 'alice'))));
 
 // ===================== COORDINATEUR (région A) =====================
 await t('coordinateur lit un membre de sa région', () => ok(getDoc(doc(as('coord'), 'members', 'alice'))));
@@ -104,13 +102,11 @@ await t('coordinateur ne change pas un rôle', () => no(updateDoc(doc(as('coord'
 await t('coordinateur ne donne pas de titre', () => no(updateDoc(doc(as('coord'), 'members', 'alice'), { contributionBadge: 'Fondateur' })));
 await t('coordinateur ne valide pas son propre dossier', () => no(updateDoc(doc(as('coord'), 'members', 'coord'), { engagementStatus: 'verified' })));
 await t('coordinateur : valeur d\'état invalide refusée', () => no(updateDoc(doc(as('coord'), 'members', 'alice'), { engagementStatus: 'ok' })));
-await t('coordinateur lit la fiche électorale de sa région', () => ok(getDoc(doc(as('coord'), 'proofs', 'alice'))));
-await t('coordinateur ne lit pas la fiche d\'une autre région', () => no(getDoc(doc(as('coord'), 'proofs', 'bob'))));
 
 // ===================== ADMIN =====================
 await t('admin liste tous les membres', () => ok(getDocs(collection(as('admin'), 'members'))));
 await t('admin nomme un coordinateur', () => ok(updateDoc(doc(as('admin'), 'members', 'bob'), { role: 'regional_coordinator', coordinatorRegions: [B] })));
-await t('admin lit une fiche électorale', () => ok(getDoc(doc(as('admin'), 'proofs', 'alice'))));
+await t('admin ne peut pas écrire dans proofs (fermée)', () => no(setDoc(doc(as('admin'), 'proofs', 'alice'), { dataUrl: 'x', mime: 'application/pdf', name: 'a.pdf', uploadedAt: new Date() })));
 
 // ===================== FORUM =====================
 const debate = (over = {}) => ({ category: 'economy', titleFr: 'Titre', titleAr: '', contentFr: 'Contenu', contentAr: '', tags: ['x'], authorId: 'alice', authorName: 'Aliou alice', authorRegion: 'Rabat', authorRole: 'Membre Adhérent PME', createdAt: serverTimestamp(), votesFor: 0, votesAgainst: 0, votesNeutral: 0, commentsCount: 0, status: 'open', ...over });

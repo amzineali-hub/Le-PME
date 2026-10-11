@@ -1,89 +1,45 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { DocStatus, Language, Member } from '../types';
-import { describeError, prepareElectoralProof, submitElectoralProof } from '../services/memberService';
 import { printRegistrationSheet } from '../utils/registrationSheet';
-import { DOC_KINDS, DOC_LABELS, DocKind, docStatusOf, dossierProgress, isPostal, statusField } from '../utils/dossier';
-import { CheckCircle2, Clock, Download, ExternalLink, FileQuestion, Loader2, Printer, UploadCloud, XCircle } from 'lucide-react';
+import { DOC_KINDS, DOC_LABELS, DocKind, docStatusOf, dossierProgress } from '../utils/dossier';
+import { CheckCircle2, Download, ExternalLink, FileQuestion, Printer, XCircle } from 'lucide-react';
 
 interface DossierCardProps {
   member: Member;
   lang: Language;
-  onMemberUpdated?: (patch: Partial<Member>) => void;
 }
 
-// Libellés d'état : les pièces papier se « remettent », la fiche électorale se « dépose » en ligne.
-const statusUi = (kind: DocKind, st: DocStatus, isAr: boolean) => {
-  const postal = isPostal(kind);
-  const map: Record<DocStatus, { fr: string; ar: string; tone: string; Icon: React.ElementType }> = {
-    none: {
-      fr: postal ? 'À remettre' : 'À déposer',
-      ar: postal ? 'للتسليم' : 'لم يُودع',
-      tone: 'bg-slate-100 text-slate-700 border-slate-300',
-      Icon: FileQuestion,
-    },
-    submitted: { fr: 'En contrôle', ar: 'قيد المراجعة', tone: 'bg-amber-100 text-amber-900 border-amber-300', Icon: Clock },
-    verified: {
-      fr: postal ? 'Reçue et conforme' : 'Validée',
-      ar: postal ? 'مستلمة ومطابقة' : 'تم التحقق',
-      tone: 'bg-emerald-100 text-emerald-900 border-emerald-300',
-      Icon: CheckCircle2,
-    },
-    rejected: {
-      fr: postal ? 'À refaire' : 'À redéposer',
-      ar: postal ? 'للتصحيح' : 'مرفوضة',
-      tone: 'bg-red-100 text-red-900 border-red-300',
-      Icon: XCircle,
-    },
-  };
-  const x = map[st];
-  return { label: isAr ? x.ar : x.fr, tone: x.tone, Icon: x.Icon };
+const STATUS_UI: Record<'none' | 'verified' | 'rejected', { fr: string; ar: string; tone: string; Icon: React.ElementType }> = {
+  none: { fr: 'À remettre', ar: 'للتسليم', tone: 'bg-slate-100 text-slate-700 border-slate-300', Icon: FileQuestion },
+  verified: { fr: 'Reçue et conforme', ar: 'مستلمة ومطابقة', tone: 'bg-emerald-100 text-emerald-900 border-emerald-300', Icon: CheckCircle2 },
+  rejected: { fr: 'À refaire', ar: 'للتصحيح', tone: 'bg-red-100 text-red-900 border-red-300', Icon: XCircle },
 };
 
+const uiOf = (st: DocStatus) => STATUS_UI[st === 'verified' ? 'verified' : st === 'rejected' ? 'rejected' : 'none'];
+
 /**
- * Dossier d'adhésion. La fiche électorale est déposée en ligne (PDF ou capture d'écran) ; l'engagement signé et
- * légalisé et la CIN recto/verso sont remis en main propre au coordinateur régional, qui les valide.
- * La carte de membre fondateur reste « en instance » tant que les quatre pièces ne sont pas validées.
+ * Dossier d'adhésion : les quatre pièces sont remises en papier au coordinateur régional, qui les valide.
+ * La carte de membre fondateur reste « en instance » tant qu'elles ne sont pas toutes validées.
  */
-export const DossierCard: React.FC<DossierCardProps> = ({ member, lang, onMemberUpdated }) => {
+export const DossierCard: React.FC<DossierCardProps> = ({ member, lang }) => {
   const isAr = lang === 'ar';
-  const [local, setLocal] = useState<Partial<Record<DocKind, DocStatus>>>({});
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
-
-  const statusOf = (k: DocKind): DocStatus => local[k] ?? docStatusOf(member, k);
-  const view: Member = { ...member, ...Object.fromEntries(Object.entries(local).map(([k, v]) => [statusField(k as DocKind), v])) };
-  const progress = dossierProgress(view);
+  const progress = dossierProgress(member);
   const complete = progress === DOC_KINDS.length;
-
-  const handleSlip = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    e.target.value = '';
-    if (!file) return;
-    setBusy(true);
-    setError('');
-    try {
-      await submitElectoralProof(member.id, await prepareElectoralProof(file));
-      setLocal((prev) => ({ ...prev, electoral: 'submitted' }));
-      onMemberUpdated?.({ electoralStatus: 'submitted' });
-    } catch (err) {
-      setError(describeError(err, isAr));
-    } finally {
-      setBusy(false);
-    }
-  };
 
   const steps = isAr
     ? [
         'حمّل نموذج الالتزام واطبعه ووقّعه.',
         'صادق على التوقيع لدى الجهة المختصة (المقاطعة أو الجماعة).',
+        'تأكد من قيدك في اللوائح الانتخابية على www.listeselectorales.ma، وإذا لم يشتغل الموقع أرسل رقم بطاقتك إلى 2727 أو استعمل تطبيق MonBV، ثم اطبع لقطة الشاشة.',
         'أرفق نسخة من بطاقتك الوطنية (الوجه والظهر).',
-        'سلّم الملف لمنسق جهتك. سيعلمك الحزب بكيفية الاتصال به.',
+        'سلّم الملف كاملاً لمنسق جهتك: يعلمك الحزب بكيفية الاتصال به.',
       ]
     : [
         'Téléchargez l’engagement, imprimez-le et signez-le.',
         'Faites légaliser la signature (arrondissement ou commune).',
+        'Vérifiez votre inscription sur www.listeselectorales.ma ; si le site ne répond pas, envoyez votre CIN par SMS au 2727 ou utilisez l’appli MonBV, puis imprimez la capture d’écran.',
         'Joignez une photocopie de votre CIN, recto et verso.',
-        'Remettez le dossier à votre coordinateur régional : le parti vous indiquera comment le joindre.',
+        'Remettez le dossier complet à votre coordinateur régional : le parti vous indiquera comment le joindre.',
       ];
 
   return (
@@ -112,22 +68,20 @@ export const DossierCard: React.FC<DossierCardProps> = ({ member, lang, onMember
           </a>
           <button
             type="button"
-            onClick={() => printRegistrationSheet(view)}
+            onClick={() => printRegistrationSheet(member)}
             className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-white border border-slate-300 text-slate-800"
           >
             <Printer className="w-3.5 h-3.5" />
-            <span>{isAr ? 'بطاقة التلخيص' : 'Fiche d’adhésion'}</span>
+            <span>{isAr ? 'طباعة بطاقة التلخيص' : 'Imprimer la fiche d’adhésion'}</span>
           </button>
         </div>
       </div>
 
       <ol className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        {DOC_KINDS.map((kind) => {
-          const st = statusOf(kind);
-          const ui = statusUi(kind, st, isAr);
-          const canUploadSlip = kind === 'electoral' && (st === 'none' || st === 'rejected');
+        {DOC_KINDS.map((kind: DocKind) => {
+          const ui = uiOf(docStatusOf(member, kind));
           return (
-            <li key={kind} className="rounded-xl bg-white border border-slate-200 p-3 space-y-2">
+            <li key={kind} className="rounded-xl bg-white border border-slate-200 p-3">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
                   <div className="text-sm font-bold text-slate-900">{isAr ? DOC_LABELS[kind].ar : DOC_LABELS[kind].fr}</div>
@@ -135,28 +89,9 @@ export const DossierCard: React.FC<DossierCardProps> = ({ member, lang, onMember
                 </div>
                 <span className={`shrink-0 inline-flex items-center gap-1 px-2 py-1 rounded-full text-[11px] font-bold border ${ui.tone}`}>
                   <ui.Icon className="w-3 h-3" />
-                  <span>{ui.label}</span>
+                  <span>{isAr ? ui.ar : ui.fr}</span>
                 </span>
               </div>
-
-              {canUploadSlip && (
-                <div className="flex flex-wrap gap-2">
-                  <a
-                    href="https://www.listeselectorales.ma"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-white border border-slate-300 text-slate-800"
-                  >
-                    <ExternalLink className="w-3.5 h-3.5" />
-                    <span>{isAr ? 'تحقق من قيدي' : 'Vérifier mon inscription'}</span>
-                  </a>
-                  <label className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-emerald-700 text-white cursor-pointer">
-                    {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <UploadCloud className="w-3.5 h-3.5" />}
-                    <span>{st === 'rejected' ? (isAr ? 'إعادة الإيداع' : 'Redéposer') : isAr ? 'إيداع' : 'Déposer'}</span>
-                    <input type="file" accept="application/pdf,.pdf,image/*" onChange={handleSlip} disabled={busy} className="hidden" />
-                  </label>
-                </div>
-              )}
             </li>
           );
         })}
@@ -164,8 +99,17 @@ export const DossierCard: React.FC<DossierCardProps> = ({ member, lang, onMember
 
       {!complete && (
         <div className="rounded-xl bg-white/70 border border-amber-200 p-3 space-y-1.5">
-          <div className="text-xs font-bold text-slate-900">
-            {isAr ? 'كيف تستكمل ملفك الورقي؟' : 'Comment compléter votre dossier papier ?'}
+          <div className="flex items-center justify-between gap-2">
+            <div className="text-xs font-bold text-slate-900">{isAr ? 'كيف تستكمل ملفك الورقي؟' : 'Comment compléter votre dossier papier ?'}</div>
+            <a
+              href="https://www.listeselectorales.ma"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-800 underline"
+            >
+              <ExternalLink className="w-3 h-3" />
+              <span>listeselectorales.ma</span>
+            </a>
           </div>
           <ol className="list-decimal ps-5 text-xs text-slate-700 space-y-1">
             {steps.map((x) => (
@@ -174,13 +118,6 @@ export const DossierCard: React.FC<DossierCardProps> = ({ member, lang, onMember
           </ol>
         </div>
       )}
-
-      <p className="text-[11px] text-slate-600">
-        {isAr
-          ? 'وصل القيد: لقطة لصفحة الموقع، أو لرسالة الرد على 2727، أو لتطبيق MonBV، أو ملف PDF (700 كيلوبايت كحد أقصى). تحوَّل اللقطة تلقائياً إلى PDF. لا يطلع على الوثائق إلا المسؤولون المخولون.'
-          : 'Fiche électorale : capture de la page du ministère, du SMS de réponse (2727) ou de l’appli MonBV, ou PDF (700 Ko max). La capture est convertie automatiquement en PDF. Seuls les responsables habilités consultent ces documents.'}
-      </p>
-      {error && <p className="text-xs font-semibold text-red-700">{error}</p>}
     </div>
   );
 };

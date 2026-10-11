@@ -3,8 +3,8 @@ rules_version = '2';
 // Règles du Parti du Maroc Émergeant.
 // - members/{uid}   : fiche adhérent, lisible par son titulaire, les administrateurs et le coordinateur de sa région.
 // - cins/{CIN}      : verrou d'unicité (une CIN = un compte), jamais lisible côté client.
-// - proofs/{uid}    : fiche d'inscription sur les listes électorales (PDF encodé, capture convertie).
-// Les autres pièces (engagement légalisé, CIN recto/verso) sont remises en main propre : rien n'est stocké en ligne.
+// Aucune pièce d'identité n'est stockée en ligne : l'engagement légalisé, la CIN recto/verso et la fiche électorale
+// sont remis en papier au coordinateur régional, qui n'en valide que l'état (engagementStatus, cinRectoStatus, …).
 // Premier administrateur : dans la console, mettre role = "admin" sur sa fiche members/{uid}.
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -99,36 +99,30 @@ service cloud.firestore {
       allow list: if isAdmin() || (signedIn() && coordinatesRegion(resource.data.regionId));
 
       // Inscription : l'adhérent crée sa propre fiche, avec le rôle le plus bas, sans titre ni pièce « validée »,
-      // avec une CIN verrouillée à son compte et sa fiche électorale déposée dans la même opération.
+      // et une CIN verrouillée à son compte (une CIN = un compte).
       allow create: if signedIn()
         && request.auth.uid == uid
         && request.resource.data.keys().hasOnly(['membershipNumber', 'firstNameFr', 'lastNameFr', 'firstNameAr', 'lastNameAr',
              'cin', 'email', 'phone', 'birthDate', 'gender', 'regionId', 'province', 'commune', 'profession', 'photoUrl',
              'commissionInterest', 'joinedDate', 'validUntil', 'contributionBadge', 'role', 'status',
-             'isElectorallyVerified', 'isEmailVerified', 'electoralStatus', 'electoralProofName', 'createdAt'])
+             'isElectorallyVerified', 'isEmailVerified', 'electoralStatus', 'createdAt'])
         && request.resource.data.role == 'member'
         && request.resource.data.status == 'pending_verification'
-        && request.resource.data.electoralStatus == 'submitted'
+        && request.resource.data.electoralStatus == 'none'
         && request.resource.data.isElectorallyVerified == false
         && request.resource.data.isEmailVerified == false
         && request.resource.data.contributionBadge == 'Adhérent Émergeant'
         && request.resource.data.cin.matches('[A-Z]{1,2}[0-9]{4,6}')
         && request.resource.data.photoUrl.size() < 200000
         && existsAfter(/databases/$(database)/documents/cins/$(request.resource.data.cin))
-        && getAfter(/databases/$(database)/documents/cins/$(request.resource.data.cin)).data.uid == request.auth.uid
-        && existsAfter(/databases/$(database)/documents/proofs/$(uid));
+        && getAfter(/databases/$(database)/documents/cins/$(request.resource.data.cin)).data.uid == request.auth.uid;
 
       // Qui peut modifier une fiche :
       //  - l'administration (tout) ;
       //  - le coordinateur de la région : uniquement l'état des pièces ;
-      //  - l'adhérent : (1) redéposer sa fiche électorale refusée, (2) corriger son profil.
+      //  - l'adhérent : corriger son profil (rien d'autre).
       allow update: if isAdmin()
         || coordinatorMayDecide(uid)
-        || (signedIn()
-          && request.auth.uid == uid
-          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['electoralStatus', 'electoralProofName'])
-          && request.resource.data.electoralStatus == 'submitted'
-          && resource.data.electoralStatus in ['none', 'rejected'])
         || (signedIn()
           && request.auth.uid == uid
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(
@@ -151,17 +145,6 @@ service cloud.firestore {
         && request.resource.data.keys().hasOnly(['uid'])
         && request.resource.data.uid == request.auth.uid;
       allow read, update, delete: if false;
-    }
-
-    match /proofs/{uid} {
-      allow get: if signedIn() && (request.auth.uid == uid || isAdmin()
-        || coordinatesRegion(get(/databases/$(database)/documents/members/$(uid)).data.regionId));
-      allow create, update: if signedIn()
-        && request.auth.uid == uid
-        && request.resource.data.keys().hasOnly(['dataUrl', 'mime', 'name', 'uploadedAt'])
-        && request.resource.data.mime == 'application/pdf'
-        && request.resource.data.dataUrl.size() < 950000;
-      allow list, delete: if false;
     }
 
     // ---------------------------------------------------------------------

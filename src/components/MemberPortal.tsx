@@ -140,7 +140,7 @@ export const MemberPortal: React.FC<MemberPortalProps> = ({
         </div>
       </div>
 
-      <DossierCard member={member} lang={lang} onMemberUpdated={onMemberUpdated} />
+      <DossierCard member={member} lang={lang} />
 
       {editingProfile && (
         <ProfileEditor

@@ -5,9 +5,9 @@ export type DocKind = 'engagement' | 'cinRecto' | 'cinVerso' | 'electoral';
 
 export const DOC_KINDS: DocKind[] = ['engagement', 'cinRecto', 'cinVerso', 'electoral'];
 
-/** Pièces papier : remises en main propre (ou par courrier) au coordinateur régional, jamais téléversées. */
-export const POSTAL_KINDS: DocKind[] = ['engagement', 'cinRecto', 'cinVerso'];
-export const isPostal = (k: DocKind): boolean => POSTAL_KINDS.includes(k);
+/** Toutes les pièces sont papier : remises au coordinateur régional, jamais téléversées. */
+export const POSTAL_KINDS: DocKind[] = DOC_KINDS;
+export const isPostal = (_k: DocKind): boolean => true;
 
 export const DOC_LABELS: Record<DocKind, { fr: string; ar: string; hintFr: string; hintAr: string }> = {
   engagement: {
@@ -31,8 +31,8 @@ export const DOC_LABELS: Record<DocKind, { fr: string; ar: string; hintFr: strin
   electoral: {
     fr: 'Fiche d’inscription sur les listes électorales',
     ar: 'وصل القيد في اللوائح الانتخابية',
-    hintFr: 'Capture de la page du ministère, du SMS de réponse (2727) ou de l’appli MonBV.',
-    hintAr: 'لقطة لصفحة الوزارة أو لرسالة الرد (2727) أو لتطبيق MonBV.',
+    hintFr: 'Capture imprimée de la page du ministère, du SMS (2727) ou de l’appli MonBV.',
+    hintAr: 'لقطة مطبوعة لصفحة الوزارة أو لرسالة الرد (2727) أو لتطبيق MonBV.',
   },
 };
 
@@ -40,7 +40,10 @@ export const DOC_LABELS: Record<DocKind, { fr: string; ar: string; hintFr: strin
 export const statusField = (kind: DocKind): 'electoralStatus' | 'engagementStatus' | 'cinRectoStatus' | 'cinVersoStatus' =>
   kind === 'electoral' ? 'electoralStatus' : (`${kind}Status` as 'engagementStatus' | 'cinRectoStatus' | 'cinVersoStatus');
 
-export const docStatusOf = (m: Member, kind: DocKind): DocStatus => m[statusField(kind)] ?? 'none';
+export const docStatusOf = (m: Member, kind: DocKind): DocStatus => {
+  const st = m[statusField(kind)] ?? 'none';
+  return st === 'submitted' ? 'none' : st; // anciens dépôts en ligne : à remettre en papier
+};
 
 export const dossierProgress = (m: Member): number => DOC_KINDS.filter((k) => docStatusOf(m, k) === 'verified').length;
 
@@ -50,8 +53,6 @@ export const isDossierComplete = (m: Member): boolean => dossierProgress(m) === 
 /** État global du dossier, pour les listes et filtres de l'administration. */
 export function dossierState(m: Member): DocStatus {
   if (isDossierComplete(m)) return 'verified';
-  const statuses = DOC_KINDS.map((k) => docStatusOf(m, k));
-  if (statuses.includes('submitted')) return 'submitted';
-  if (statuses.includes('rejected')) return 'rejected';
+  if (DOC_KINDS.some((k) => docStatusOf(m, k) === 'rejected')) return 'rejected';
   return 'none';
 }

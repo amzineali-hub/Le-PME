@@ -9,13 +9,6 @@ const esc = (v: unknown) =>
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
 
-const ELECTORAL_LABELS: Record<string, string> = {
-  none: 'Non déposée / لم تُودع',
-  submitted: 'Déposée, en attente de contrôle / مودعة في انتظار المراجعة',
-  verified: 'Vérifiée par le parti / تم التحقق منها',
-  rejected: 'Refusée, à redéposer / مرفوضة، يرجى إعادة الإيداع',
-};
-
 /**
  * Ouvre la fiche d'adhésion dans une fenêtre autonome et lance l'impression
  * (le navigateur permet aussi « Enregistrer au format PDF »).
@@ -43,12 +36,13 @@ export function printRegistrationSheet(member: Member): void {
         .map((k) => DOC_LABELS[k].fr)
         .join(', ') || 'complet'}`,
     ],
-    [
-      'Inscription sur les listes électorales',
-      'التسجيل في اللوائح الانتخابية',
-      ELECTORAL_LABELS[member.electoralStatus ?? 'none'],
-    ],
   ];
+
+  // Liste des pièces à joindre : cette fiche accompagne le dossier papier remis au coordinateur régional.
+  const checklist = DOC_KINDS.map((k) => {
+    const done = docStatusOf(member, k) === 'verified';
+    return `<li><span class="box">${done ? '&#10003;' : ''}</span> ${esc(DOC_LABELS[k].fr)} <span class="ar">${esc(DOC_LABELS[k].ar)}</span></li>`;
+  }).join('');
 
   const html = `<!doctype html>
 <html lang="fr"><head><meta charset="utf-8">
@@ -71,6 +65,12 @@ export function printRegistrationSheet(member: Member): void {
   td.l span { display: block; direction: rtl; font-weight: normal; color: #475569; }
   .sign { display: flex; justify-content: space-between; margin-top: 36px; }
   .sign div { width: 45%; border-top: 1px solid #0f172a; padding-top: 6px; text-align: center; }
+  .checks { margin: 22px 0 0; padding: 12px 14px; border: 1px dashed #64748b; border-radius: 6px; }
+  .checks h3 { margin: 0 0 8px; font-size: 13px; }
+  .checks ul { list-style: none; margin: 0; padding: 0; }
+  .checks li { margin: 5px 0; display: flex; align-items: center; gap: 8px; }
+  .checks .ar { color: #475569; margin-inline-start: auto; direction: rtl; }
+  .box { width: 14px; height: 14px; border: 1.5px solid #0f172a; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: bold; }
   .note { margin-top: 26px; font-size: 10px; color: #475569; line-height: 1.5; }
 </style></head><body>
 <header>
@@ -89,6 +89,10 @@ export function printRegistrationSheet(member: Member): void {
       .map(([fr, ar, v]) => `<tr><td class="l">${esc(fr)}<span>${esc(ar)}</span></td><td>${esc(v)}</td></tr>`)
       .join('')}
   </table>
+</div>
+<div class="checks">
+  <h3>Pièces à remettre à votre coordinateur régional / الوثائق الواجب تسليمها لمنسق جهتكم</h3>
+  <ul>${checklist}</ul>
 </div>
 <div class="sign">
   <div>Signature de l'adhérent<br>إمضاء المنخرط</div>

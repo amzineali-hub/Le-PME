@@ -5,13 +5,7 @@ import { TRANSLATIONS } from '../data/translations';
 import { AVATAR_OPTIONS } from '../data/mockData';
 import { Language, Member } from '../types';
 import { validateMoroccanCIN } from '../services/electoralService';
-import {
-  ElectoralProof,
-  describeError,
-  prepareElectoralProof,
-  preparePhoto,
-  registerMember,
-} from '../services/memberService';
+import { describeError, preparePhoto, registerMember } from '../services/memberService';
 import { printRegistrationSheet } from '../utils/registrationSheet';
 import { MembershipCard } from './MembershipCard';
 import {
@@ -31,7 +25,6 @@ import {
   Lock,
   Vote,
   Printer,
-  UploadCloud,
   ExternalLink
 } from 'lucide-react';
 
@@ -79,9 +72,6 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({
   // Errors
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  // Fiche d'inscription sur les listes électorales (déposée par l'adhérent)
-  const [proof, setProof] = useState<ElectoralProof | null>(null);
-  const [proofBusy, setProofBusy] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
   const [photoError, setPhotoError] = useState('');
@@ -157,28 +147,8 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({
     if (validateStep2()) setCurrentStep(3);
   };
 
-  const handleProofUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    e.target.value = '';
-    if (!file) return;
-    setProofBusy(true);
-    setSubmitError('');
-    try {
-      setProof(await prepareElectoralProof(file));
-    } catch (err) {
-      setProof(null);
-      setSubmitError(describeError(err, isAr));
-    } finally {
-      setProofBusy(false);
-    }
-  };
-
   // Création du compte + de la fiche adhérent, puis émission de la carte
   const handleSubmitRegistration = async () => {
-    if (!proof) {
-      setSubmitError(isAr ? 'وصل القيد في اللوائح الانتخابية إلزامي.' : 'La fiche d’inscription électorale est obligatoire.');
-      return;
-    }
     setIsSubmitting(true);
     setSubmitError('');
     try {
@@ -206,8 +176,7 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({
           validUntil: '31/12/2027',
           contributionBadge: 'Adhérent Émergeant',
         },
-        password,
-        proof
+        password
       );
 
       setCreatedMember(newMember);
@@ -253,7 +222,7 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({
           {[
             { num: 1, label: t.registration.step1 },
             { num: 2, label: t.registration.step2 },
-            { num: 3, label: isAr ? '3. القيد الانتخابي' : '3. Liste électorale' },
+            { num: 3, label: isAr ? '3. الملف الورقي' : '3. Dossier papier' },
             { num: 5, label: isAr ? '4. بطاقة الانخراط' : '4. Fiche & Carte' },
           ].map((s, idx) => {
             const isActive = currentStep === s.num;
@@ -736,24 +705,36 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({
           </div>
         )}
 
-        {/* ================= STEP 3: DÉPÔT DE LA FICHE ÉLECTORALE ================= */}
+        {/* ================= STEP 3: DOSSIER PAPIER ================= */}
         {currentStep === 3 && (
           <div className="space-y-8 animate-in fade-in duration-300">
             <div className="text-center max-w-xl mx-auto space-y-2">
               <div className="w-16 h-16 rounded-2xl bg-emerald-100 text-emerald-800 flex items-center justify-center mx-auto shadow-inner">
-                <Vote className="w-8 h-8 text-emerald-700" />
+                <FileCheck2 className="w-8 h-8 text-emerald-700" />
               </div>
               <h2 className="section-title text-2xl sm:text-3xl font-extrabold text-slate-900">
-                {isAr ? 'القيد في اللوائح الانتخابية' : 'Inscription sur les listes électorales'}
+                {isAr ? 'ملفك الورقي' : 'Votre dossier papier'}
               </h2>
               <p className="text-slate-600 text-sm">
                 {isAr
-                  ? 'أدخل إلى موقع اللوائح الانتخابية، تأكد من قيدك، والتقط صورة للشاشة (لقطة) ثم أرفقها هنا. هذه الوثيقة إلزامية للانخراط كعضو مؤسس.'
-                  : 'Rendez-vous sur le site des listes électorales, vérifiez votre inscription, faites une capture d’écran de la page de résultat, puis joignez-la ici. Cette pièce est obligatoire pour être membre fondateur.'}
+                  ? 'تنتهي عملية التسجيل هنا في دقيقة. لتفعيل بطاقة العضو المؤسس، سلّم الوثائق الورقية التالية لمنسق جهتك.'
+                  : 'L’inscription en ligne se termine ici, en une minute. Pour activer votre carte de membre fondateur, remettez les pièces papier suivantes à votre coordinateur régional.'}
               </p>
             </div>
 
-            <div className="max-w-xl mx-auto space-y-5">
+            <div className="max-w-xl mx-auto space-y-3">
+              <ol className="space-y-2">
+                {(isAr ? [["الالتزام الموقع والمصادق عليه","حمّل النموذج بعد التسجيل، ثم وقّعه وصادق على التوقيع."],["نسخة من بطاقتك الوطنية","الوجه والظهر."],["وصل القيد في اللوائح الانتخابية","لقطة مطبوعة من www.listeselectorales.ma. إذا لم يشتغل الموقع: أرسل رقم بطاقتك إلى 2727 أو استعمل تطبيق MonBV."]] : [["Engagement signé et légalisé","Téléchargeable après l’inscription ; à signer puis à faire légaliser."],["Photocopie de votre CIN","Recto et verso."],["Fiche d’inscription sur les listes électorales","Capture imprimée de www.listeselectorales.ma. Si le site ne répond pas : SMS gratuit au 2727 avec votre CIN, ou appli MonBV."]]).map(([title, hint], i) => (
+                  <li key={title} className="flex items-start gap-3 rounded-xl border border-slate-200 bg-white p-3">
+                    <span className="w-7 h-7 shrink-0 rounded-full bg-emerald-700 text-white text-sm font-bold flex items-center justify-center">{i + 1}</span>
+                    <div className="min-w-0">
+                      <div className="text-sm font-bold text-slate-900">{title}</div>
+                      <div className="text-xs text-slate-600">{hint}</div>
+                    </div>
+                  </li>
+                ))}
+              </ol>
+
               <a
                 href="https://www.listeselectorales.ma"
                 target="_blank"
@@ -764,67 +745,11 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({
                 <span>{isAr ? 'فتح www.listeselectorales.ma والتحقق من قيدي' : 'Ouvrir www.listeselectorales.ma et vérifier mon inscription'}</span>
               </a>
 
-              <div className="rounded-xl bg-sky-50 border border-sky-200 p-3 text-xs text-sky-900 leading-relaxed space-y-1">
-                <div className="font-bold">{isAr ? 'الموقع لا يشتغل؟ هناك طريقتان أخريان:' : 'Le site ne répond pas ? Deux autres moyens :'}</div>
-                <ul className="list-disc ps-5 space-y-0.5">
-                  <li>
-                    {isAr
-                      ? 'أرسل رقم بطاقتك الوطنية في رسالة قصيرة مجانية إلى الرقم 2727، ثم التقط صورة لشاشة الرسالة التي تصلك.'
-                      : 'Envoyez votre numéro de CIN par SMS gratuit au 2727, puis faites une capture d’écran du SMS reçu.'}
-                  </li>
-                  <li>
-                    {isAr
-                      ? 'أو حمّل تطبيق MonBV والتقط صورة للشاشة التي تظهر مكتب التصويت.'
-                      : 'Ou installez l’application MonBV et faites une capture de l’écran qui affiche votre bureau de vote.'}
-                  </li>
-                </ul>
-                <div>
-                  {isAr
-                    ? 'لقطة الرسالة أو التطبيق تُقبل كوصل قيد، ويتحقق منها منسق جهتك.'
-                    : 'La capture du SMS ou de l’application est acceptée comme preuve ; votre coordinateur régional la contrôle.'}
-                </div>
-              </div>
-
-              <label className="block cursor-pointer rounded-2xl border-2 border-dashed border-slate-300 hover:border-emerald-500 bg-slate-50 p-6 text-center transition-colors">
-                {proofBusy ? (
-                  <Loader2 className="w-8 h-8 text-emerald-600 animate-spin mx-auto" />
-                ) : proof ? (
-                  <FileCheck2 className="w-8 h-8 text-emerald-600 mx-auto" />
-                ) : (
-                  <UploadCloud className="w-8 h-8 text-slate-400 mx-auto" />
-                )}
-                <div className="mt-2 text-sm font-semibold text-slate-800 break-all">
-                  {proof
-                    ? proof.name
-                    : isAr
-                    ? 'اضغط لاختيار لقطة الشاشة (موقع أو رسالة أو تطبيق)'
-                    : 'Touchez pour choisir votre capture d’écran (site, SMS ou appli) ou un PDF'}
-                </div>
-                <div className="text-[11px] text-slate-500 mt-1">
-                  {isAr ? 'تتحول اللقطة تلقائياً إلى PDF (700 كيلوبايت كحد أقصى)' : 'La capture est convertie automatiquement en PDF (700 Ko maximum)'}
-                </div>
-                <input
-                  type="file"
-                  accept="application/pdf,.pdf,image/*"
-                  onChange={handleProofUpload}
-                  className="hidden"
-                />
-              </label>
-
               <div className="rounded-xl bg-amber-50 border border-amber-300 p-3 text-xs text-amber-900 leading-relaxed">
                 {isAr
-                  ? 'بعد التسجيل، ستسلّم الوثائق الورقية لمنسق جهتك: الالتزام الموقع والمصادق عليه ونسخة من بطاقتك الوطنية (الوجه والظهر). تبقى بطاقة العضو المؤسس في انتظار الوثائق المصادق عليها.'
-                  : 'Après l’inscription, vous remettrez à votre coordinateur régional les pièces papier : l’engagement signé et légalisé, et la photocopie de votre CIN (recto et verso). Votre carte de membre fondateur reste en instance jusqu’à validation de toutes les pièces.'}
+                  ? 'تبقى بطاقة العضو المؤسس «في انتظار الوثائق المصادق عليها» إلى أن يتسلم المنسق ملفك ويصادق عليه.'
+                  : 'Votre carte de membre fondateur reste « en instance » jusqu’à ce que le coordinateur reçoive et valide votre dossier.'}
               </div>
-
-              <p className="text-[11px] text-slate-500 flex items-start gap-1.5">
-                <Lock className="w-3.5 h-3.5 text-emerald-700 shrink-0 mt-0.5" />
-                <span>
-                  {isAr
-                    ? 'لا يطلع على هذا الملف إلا مسؤولو الحزب المخولون لمراقبة القيد.'
-                    : 'Seuls les responsables habilités du parti peuvent consulter ce document, uniquement pour contrôler votre inscription.'}
-                </span>
-              </p>
 
               {submitError && <p className="text-red-600 text-sm font-medium text-center">{submitError}</p>}
             </div>
@@ -843,15 +768,11 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({
               <button
                 type="button"
                 onClick={handleSubmitRegistration}
-                disabled={isSubmitting || proofBusy || !proof}
+                disabled={isSubmitting}
                 className="w-full sm:w-auto flex items-center justify-center gap-2 bg-emerald-700 hover:bg-emerald-800 disabled:opacity-60 text-white font-bold py-3.5 px-6 sm:px-8 rounded-xl shadow-lg hover:shadow-xl transition-all active:scale-98"
               >
                 {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4 text-emerald-300" />}
-                <span>
-                  {proof
-                    ? isAr ? 'إنهاء الانخراط' : 'Finaliser mon adhésion'
-                    : isAr ? 'أرفق لقطة الشاشة للمتابعة' : 'Joignez la capture pour continuer'}
-                </span>
+                <span>{isAr ? 'إنهاء الانخراط' : 'Finaliser mon adhésion'}</span>
               </button>
             </div>
           </div>

@@ -10,30 +10,8 @@ import { collection, doc, getDoc, getDocs, query, serverTimestamp, updateDoc, wh
 import { auth, db } from '../firebase';
 import { ElectoralStatus, Member } from '../types';
 import { DocKind, statusField } from '../utils/dossier';
-import { base64ToBytes, bytesToBase64, jpegToPdf } from '../utils/imagePdf';
 
 export type NewMemberData = Omit<Member, 'id' | 'role' | 'status' | 'isElectorallyVerified' | 'isEmailVerified' | 'electoralStatus'>;
-
-export interface ElectoralProof {
-  dataUrl: string;
-  mime: 'application/pdf';
-  name: string;
-}
-
-// La fiche (image ou PDF) est stockée dans Firestore (plan gratuit, sans Cloud Storage).
-// Les documents Firestore sont limités à 1 Mo : on compresse les images et on borne les PDF.
-// Un document Firestore pèse 1 Mo au plus ; le base64 ajoute 33 % : 690 Ko de PDF tiennent dans 950 000 caractères.
-const MAX_PDF_BYTES = 690 * 1024;
-const MAX_PROOF_CHARS = 950_000;
-
-function readAsDataUrl(file: Blob): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result));
-    reader.onerror = () => reject(reader.error);
-    reader.readAsDataURL(file);
-  });
-}
 
 type Drawable = { source: CanvasImageSource; width: number; height: number; close?: () => void };
 
@@ -80,19 +58,6 @@ function newCanvas(w: number, h: number) {
   return { canvas, ctx };
 }
 
-/** Redimensionne en conservant les proportions (fiche électorale, lisible jusqu'à 1600 px). */
-async function compressImage(file: File, maxSide: number, startQuality: number, maxChars: number): Promise<string> {
-  const img = await decodeImage(file);
-  try {
-    const ratio = Math.min(1, maxSide / Math.max(img.width, img.height));
-    const { canvas, ctx } = newCanvas(Math.round(img.width * ratio), Math.round(img.height * ratio));
-    ctx.drawImage(img.source, 0, 0, canvas.width, canvas.height);
-    return encodeJpeg(canvas, startQuality, maxChars);
-  } finally {
-    img.close?.();
-  }
-}
-
 /** Photo d'identité : recadrage portrait 4:5 centré, 300x375 px. */
 async function portraitPhoto(file: File): Promise<string> {
   const img = await decodeImage(file);
@@ -113,54 +78,9 @@ async function portraitPhoto(file: File): Promise<string> {
 
 export const preparePhoto = (file: File) => portraitPhoto(file);
 
-/**
- * Convertit une capture d'écran (JPG, PNG, WebP…) en PDF d'une page, dans le navigateur.
- * On réduit l'image (1600 px max) et on baisse la qualité JPEG jusqu'à ce que le PDF tienne dans la limite.
- */
-async function imageToPdfProof(file: File): Promise<ElectoralProof> {
-  const img = await decodeImage(file);
-  try {
-    const ratio = Math.min(1, 1600 / Math.max(img.width, img.height));
-    const w = Math.round(img.width * ratio);
-    const h = Math.round(img.height * ratio);
-    const { canvas, ctx } = newCanvas(w, h);
-    ctx.drawImage(img.source, 0, 0, w, h);
-    for (let q = 0.85; q >= 0.35; q -= 0.1) {
-      const jpegUrl = canvas.toDataURL('image/jpeg', q);
-      const pdf = jpegToPdf(base64ToBytes(jpegUrl.slice(jpegUrl.indexOf(',') + 1)), w, h);
-      if (pdf.length <= MAX_PDF_BYTES) {
-        const base = file.name.replace(/\.[^.]+$/, '').slice(0, 100) || 'capture';
-        return { dataUrl: `data:application/pdf;base64,${bytesToBase64(pdf)}`, mime: 'application/pdf', name: `${base}.pdf` };
-      }
-    }
-    throw new Error('file-too-large');
-  } finally {
-    img.close?.();
-  }
-}
-
-/**
- * Pièce du dossier envoyée en ligne (fiche d'inscription électorale) : on stocke toujours un PDF.
- * - un PDF est contrôlé (extension, signature « %PDF », taille) ;
- * - une image (capture d'écran du site du ministère) est convertie en PDF automatiquement.
- */
-export async function prepareElectoralProof(file: File): Promise<ElectoralProof> {
-  if (file.type.startsWith('image/')) return imageToPdfProof(file);
-  const looksPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
-  if (!looksPdf) throw new Error('file-type');
-  if (file.size > MAX_PDF_BYTES) throw new Error('file-too-large');
-  const head = new TextDecoder().decode(await file.slice(0, 5).arrayBuffer());
-  if (!head.startsWith('%PDF')) throw new Error('file-type');
-  const dataUrl = (await readAsDataUrl(file)).replace(/^data:[^;]*;base64,/, 'data:application/pdf;base64,');
-  if (dataUrl.length > MAX_PROOF_CHARS) throw new Error('file-too-large');
-  return { dataUrl, mime: 'application/pdf', name: file.name.slice(0, 120) };
-}
-
-
 export async function registerMember(
   data: NewMemberData,
-  password: string,
-  proof: ElectoralProof
+  password: string
 ): Promise<Member> {
   const cred = await createUserWithEmailAndPassword(auth, data.email, password);
   const uid = cred.user.uid;
@@ -171,8 +91,8 @@ export async function registerMember(
     status: 'pending_verification',
     isElectorallyVerified: false,
     isEmailVerified: false,
-    electoralStatus: 'submitted',
-    electoralProofName: proof.name,
+    // Toutes les pièces du dossier sont remises en papier au coordinateur régional : rien n'est stocké en ligne.
+    electoralStatus: 'none',
   };
   const { id: _id, electoralDetails: _details, ...stored } = member;
 
@@ -181,8 +101,6 @@ export async function registerMember(
     batch.set(doc(db, 'members', uid), { ...stored, createdAt: serverTimestamp() });
     // Verrou d'unicité : échoue si cette CIN est déjà inscrite.
     batch.set(doc(db, 'cins', data.cin), { uid });
-    // La fiche électorale est obligatoire : elle est écrite dans la même opération que la fiche adhérent.
-    batch.set(doc(db, 'proofs', uid), { ...proof, uploadedAt: serverTimestamp() });
     await batch.commit();
   } catch (err) {
     // On ne laisse pas de compte d'authentification orphelin (ex. CIN déjà inscrite).
@@ -190,13 +108,6 @@ export async function registerMember(
     throw err;
   }
   return member;
-}
-
-export async function submitElectoralProof(uid: string, proof: ElectoralProof): Promise<void> {
-  const batch = writeBatch(db);
-  batch.set(doc(db, 'proofs', uid), { ...proof, uploadedAt: serverTimestamp() });
-  batch.update(doc(db, 'members', uid), { electoralStatus: 'submitted', electoralProofName: proof.name });
-  await batch.commit();
 }
 
 export async function fetchMember(uid: string): Promise<Member | null> {
@@ -243,8 +154,8 @@ export function describeError(err: unknown, isAr: boolean): string {
   if (code.includes('too-many-requests')) return m('Trop de tentatives. Réessayez dans quelques minutes.', 'محاولات كثيرة. أعد المحاولة بعد دقائق.');
   if (code.includes('network')) return m('Problème de connexion internet.', 'مشكل في الاتصال بالإنترنت.');
   if (code.includes('permission-denied')) return m('Cette CIN est déjà inscrite ou l’accès a été refusé.', 'رقم البطاقة الوطنية مسجل مسبقاً أو تم رفض الطلب.');
-  if (code.includes('file-too-large')) return m('PDF trop volumineux (700 Ko maximum). Réduisez-le (numérisation en 150 dpi, niveaux de gris).', 'ملف PDF كبير جداً (700 كيلوبايت كحد أقصى). قلّص حجمه (مسح بدقة 150 نقطة، تدرج رمادي).');
-  if (code.includes('file-type')) return m('Format non accepté : PDF ou capture d’écran (image) uniquement.', 'صيغة غير مقبولة: ملف PDF أو لقطة شاشة (صورة) فقط.');
+  if (code.includes('file-too-large')) return m('Fichier trop volumineux. Choisissez une photo plus légère.', 'الملف كبير جداً. اختر صورة أخف.');
+  if (code.includes('file-type')) return m('Format non accepté : choisissez une photo (JPG, PNG).', 'صيغة غير مقبولة: اختر صورة (JPG أو PNG).');
   if (code.includes('member-not-found')) return m('Aucune fiche adhérent associée à ce compte.', 'لا توجد بطاقة منخرط مرتبطة بهذا الحساب.');
   return m('Une erreur est survenue. Veuillez réessayer.', 'حدث خطأ. يرجى المحاولة مرة أخرى.');
 }
@@ -256,14 +167,6 @@ export function describeError(err: unknown, isAr: boolean): string {
 export async function listAllMembers(): Promise<Member[]> {
   const snap = await getDocs(collection(db, 'members'));
   return snap.docs.map((d) => ({ ...(d.data() as Omit<Member, 'id'>), id: d.id }) as Member);
-}
-
-export type StoredDocument = { dataUrl: string; mime: string; name: string };
-
-/** Fiche électorale déposée à l'inscription (seule pièce stockée en ligne ; les autres sont remises en main propre). */
-export async function fetchElectoralProof(uid: string): Promise<StoredDocument | null> {
-  const snap = await getDoc(doc(db, 'proofs', uid));
-  return snap.exists() ? (snap.data() as StoredDocument) : null;
 }
 
 /**
