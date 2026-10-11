@@ -22,6 +22,10 @@ export const Footer: React.FC<FooterProps> = ({ lang, onSelectTab, onSelectRegio
   return (
     <footer className="bg-slate-950 text-white border-t border-slate-900 mt-20 pt-16 pb-24">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 space-y-12">
+        <div className="flex justify-center">
+          <VisitorCounter lang={lang} />
+        </div>
+
         {/* Main Footer Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-8">
           {/* Brand Col (2 cols) */}
@@ -166,7 +170,6 @@ export const Footer: React.FC<FooterProps> = ({ lang, onSelectTab, onSelectRegio
         {/* Copyright Bar */}
         <div className="pt-8 border-t border-slate-900 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500 gap-3">
           <div>{t.footer.copyright}</div>
-          <VisitorCounter lang={lang} />
           <div className="flex items-center gap-1 text-[11px]">
             <span>Plateforme Citoyenne du Parti du Maroc Émergeant</span>
           </div>
