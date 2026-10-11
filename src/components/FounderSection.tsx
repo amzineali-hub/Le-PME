@@ -70,6 +70,7 @@ export const FounderSection: React.FC<FounderSectionProps> = ({ lang }) => {
         <div className="lg:col-span-3 space-y-5">
           <blockquote className="relative bg-white rounded-3xl border border-slate-200 p-6 sm:p-7">
             <Quote className="absolute top-4 end-5 w-8 h-8 text-teal-100" aria-hidden="true" />
+            <h3 className="text-base font-extrabold text-slate-900 mb-2 pe-8">{pick(founder.profileTitle)}</h3>
             <p className="text-sm sm:text-[15px] leading-loose text-slate-700 pe-8">{pick(founder.profile)}</p>
           </blockquote>
 

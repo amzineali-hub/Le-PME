@@ -73,6 +73,7 @@ export interface FounderData {
   name: Bilingual;
   headline: Bilingual;
   city: Bilingual;
+  profileTitle?: Bilingual;
   profile: Bilingual;
   roles: Bilingual[];
   skills: Bilingual[];
@@ -98,7 +99,7 @@ export function renderFounder(d: FounderData): string {
     'Compétences :',
     ...d.skills.map((x) => `- ${line(x)}`),
     '',
-    `Profil (ses mots) : ${d.profile.fr}`,
+    `${d.profileTitle ? line(d.profileTitle) : "Profil"} (ses mots) : ${d.profile.fr}`,
     ...(d.facebookGroup ? ['', `Groupe Facebook indiqué dans son CV : ${d.facebookGroup}`] : []),
   ].join('\n');
 }

@@ -85,7 +85,7 @@ await test('la base de connaissance contient le projet politique et le guide d\'
 });
 await test('le fondateur : TOUTES les données du JSON (site) se retrouvent dans la base de l assistant', () => {
   const d = JSON.parse(fs.readFileSync(path.join(here, '..', 'knowledge', 'fondateur.json'), 'utf8'));
-  const all: string[] = [d.name.ar, d.name.fr, d.headline.ar, d.headline.fr, d.city.ar, d.city.fr, d.profile.fr, d.facebookGroup];
+  const all: string[] = [d.name.ar, d.name.fr, d.headline.ar, d.headline.fr, d.city.ar, d.city.fr, d.profile.fr, d.profileTitle.ar, d.profileTitle.fr, d.facebookGroup];
   for (const x of [...d.roles, ...d.skills]) all.push(x.ar, x.fr);
   for (const s of all) assert.ok(knowledge.includes(s), 'absent de la base : ' + s);
   assert.ok(d.roles.length === 4 && d.skills.length >= 8);
