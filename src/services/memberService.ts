@@ -6,10 +6,11 @@ import {
   signInWithEmailAndPassword,
   signOut,
 } from 'firebase/auth';
-import { collection, doc, getDoc, getDocs, serverTimestamp, updateDoc, writeBatch } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, query, serverTimestamp, updateDoc, where, writeBatch } from 'firebase/firestore';
 import { auth, db } from '../firebase';
 import { ElectoralStatus, Member } from '../types';
-import { DocKind, docStatusOf, DOC_KINDS, statusField } from '../utils/dossier';
+import { DocKind, statusField } from '../utils/dossier';
+import { base64ToBytes, bytesToBase64, jpegToPdf } from '../utils/imagePdf';
 
 export type NewMemberData = Omit<Member, 'id' | 'role' | 'status' | 'isElectorallyVerified' | 'isEmailVerified' | 'electoralStatus'>;
 
@@ -113,10 +114,38 @@ async function portraitPhoto(file: File): Promise<string> {
 export const preparePhoto = (file: File) => portraitPhoto(file);
 
 /**
- * Pièces du dossier d'adhésion (engagement, CIN recto/verso, fiche électorale) : PDF uniquement.
- * On vérifie le type déclaré, l'extension et la signature « %PDF » du fichier.
+ * Convertit une capture d'écran (JPG, PNG, WebP…) en PDF d'une page, dans le navigateur.
+ * On réduit l'image (1600 px max) et on baisse la qualité JPEG jusqu'à ce que le PDF tienne dans la limite.
+ */
+async function imageToPdfProof(file: File): Promise<ElectoralProof> {
+  const img = await decodeImage(file);
+  try {
+    const ratio = Math.min(1, 1600 / Math.max(img.width, img.height));
+    const w = Math.round(img.width * ratio);
+    const h = Math.round(img.height * ratio);
+    const { canvas, ctx } = newCanvas(w, h);
+    ctx.drawImage(img.source, 0, 0, w, h);
+    for (let q = 0.85; q >= 0.35; q -= 0.1) {
+      const jpegUrl = canvas.toDataURL('image/jpeg', q);
+      const pdf = jpegToPdf(base64ToBytes(jpegUrl.slice(jpegUrl.indexOf(',') + 1)), w, h);
+      if (pdf.length <= MAX_PDF_BYTES) {
+        const base = file.name.replace(/\.[^.]+$/, '').slice(0, 100) || 'capture';
+        return { dataUrl: `data:application/pdf;base64,${bytesToBase64(pdf)}`, mime: 'application/pdf', name: `${base}.pdf` };
+      }
+    }
+    throw new Error('file-too-large');
+  } finally {
+    img.close?.();
+  }
+}
+
+/**
+ * Pièce du dossier envoyée en ligne (fiche d'inscription électorale) : on stocke toujours un PDF.
+ * - un PDF est contrôlé (extension, signature « %PDF », taille) ;
+ * - une image (capture d'écran du site du ministère) est convertie en PDF automatiquement.
  */
 export async function prepareElectoralProof(file: File): Promise<ElectoralProof> {
+  if (file.type.startsWith('image/')) return imageToPdfProof(file);
   const looksPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
   if (!looksPdf) throw new Error('file-type');
   if (file.size > MAX_PDF_BYTES) throw new Error('file-too-large');
@@ -131,7 +160,7 @@ export async function prepareElectoralProof(file: File): Promise<ElectoralProof>
 export async function registerMember(
   data: NewMemberData,
   password: string,
-  proof: ElectoralProof | null
+  proof: ElectoralProof
 ): Promise<Member> {
   const cred = await createUserWithEmailAndPassword(auth, data.email, password);
   const uid = cred.user.uid;
@@ -142,8 +171,8 @@ export async function registerMember(
     status: 'pending_verification',
     isElectorallyVerified: false,
     isEmailVerified: false,
-    electoralStatus: proof ? 'submitted' : 'none',
-    electoralProofName: proof?.name ?? '',
+    electoralStatus: 'submitted',
+    electoralProofName: proof.name,
   };
   const { id: _id, electoralDetails: _details, ...stored } = member;
 
@@ -152,9 +181,8 @@ export async function registerMember(
     batch.set(doc(db, 'members', uid), { ...stored, createdAt: serverTimestamp() });
     // Verrou d'unicité : échoue si cette CIN est déjà inscrite.
     batch.set(doc(db, 'cins', data.cin), { uid });
-    if (proof) {
-      batch.set(doc(db, 'proofs', uid), { ...proof, uploadedAt: serverTimestamp() });
-    }
+    // La fiche électorale est obligatoire : elle est écrite dans la même opération que la fiche adhérent.
+    batch.set(doc(db, 'proofs', uid), { ...proof, uploadedAt: serverTimestamp() });
     await batch.commit();
   } catch (err) {
     // On ne laisse pas de compte d'authentification orphelin (ex. CIN déjà inscrite).
@@ -168,15 +196,6 @@ export async function submitElectoralProof(uid: string, proof: ElectoralProof): 
   const batch = writeBatch(db);
   batch.set(doc(db, 'proofs', uid), { ...proof, uploadedAt: serverTimestamp() });
   batch.update(doc(db, 'members', uid), { electoralStatus: 'submitted', electoralProofName: proof.name });
-  await batch.commit();
-}
-
-/** Dépôt d'une pièce du dossier (engagement, CIN recto/verso, fiche électorale). */
-export async function submitDocument(uid: string, kind: DocKind, proof: ElectoralProof): Promise<void> {
-  if (kind === 'electoral') return submitElectoralProof(uid, proof);
-  const batch = writeBatch(db);
-  batch.set(doc(db, 'docs', `${uid}_${kind}`), { uid, kind, ...proof, uploadedAt: serverTimestamp() });
-  batch.update(doc(db, 'members', uid), { [statusField(kind)]: 'submitted' });
   await batch.commit();
 }
 
@@ -225,7 +244,7 @@ export function describeError(err: unknown, isAr: boolean): string {
   if (code.includes('network')) return m('Problème de connexion internet.', 'مشكل في الاتصال بالإنترنت.');
   if (code.includes('permission-denied')) return m('Cette CIN est déjà inscrite ou l’accès a été refusé.', 'رقم البطاقة الوطنية مسجل مسبقاً أو تم رفض الطلب.');
   if (code.includes('file-too-large')) return m('PDF trop volumineux (700 Ko maximum). Réduisez-le (numérisation en 150 dpi, niveaux de gris).', 'ملف PDF كبير جداً (700 كيلوبايت كحد أقصى). قلّص حجمه (مسح بدقة 150 نقطة، تدرج رمادي).');
-  if (code.includes('file-type')) return m('Format non accepté : PDF uniquement.', 'صيغة غير مقبولة: ملف PDF فقط.');
+  if (code.includes('file-type')) return m('Format non accepté : PDF ou capture d’écran (image) uniquement.', 'صيغة غير مقبولة: ملف PDF أو لقطة شاشة (صورة) فقط.');
   if (code.includes('member-not-found')) return m('Aucune fiche adhérent associée à ce compte.', 'لا توجد بطاقة منخرط مرتبطة بهذا الحساب.');
   return m('Une erreur est survenue. Veuillez réessayer.', 'حدث خطأ. يرجى المحاولة مرة أخرى.');
 }
@@ -241,26 +260,38 @@ export async function listAllMembers(): Promise<Member[]> {
 
 export type StoredDocument = { dataUrl: string; mime: string; name: string };
 
-/** Lit une pièce déposée (réservé à son propriétaire et à l'administration par firestore.rules). */
-export async function fetchMemberDocument(uid: string, kind: DocKind): Promise<StoredDocument | null> {
-  const snap = await getDoc(kind === 'electoral' ? doc(db, 'proofs', uid) : doc(db, 'docs', `${uid}_${kind}`));
+/** Fiche électorale déposée à l'inscription (seule pièce stockée en ligne ; les autres sont remises en main propre). */
+export async function fetchElectoralProof(uid: string): Promise<StoredDocument | null> {
+  const snap = await getDoc(doc(db, 'proofs', uid));
   return snap.exists() ? (snap.data() as StoredDocument) : null;
 }
 
 /**
- * Valide, refuse ou remet en attente UNE pièce du dossier.
- * Le compte passe « actif » et « vérifié électoralement » seulement quand les quatre pièces sont validées.
+ * Valide, refuse ou remet en attente une ou plusieurs pièces du dossier (ex. les trois pièces papier
+ * reçues en main propre). Autorisé à l'administration et au coordinateur de la région du membre.
  */
-export async function setDocumentDecision(member: Member, kind: DocKind, decision: ElectoralStatus): Promise<Partial<Member>> {
-  const after: Member = { ...member, [statusField(kind)]: decision };
-  const complete = DOC_KINDS.every((k) => docStatusOf(after, k) === 'verified');
-  const patch: Partial<Member> = {
-    [statusField(kind)]: decision,
-    isElectorallyVerified: docStatusOf(after, 'electoral') === 'verified',
-    status: complete ? 'active' : 'pending_verification',
-  };
-  await updateDoc(doc(db, 'members', member.id), patch);
+export async function setDocumentDecision(member: Member, kinds: DocKind[], decision: ElectoralStatus): Promise<Partial<Member>> {
+  const patch: Partial<Member> = {};
+  for (const k of kinds) patch[statusField(k)] = decision;
+  const after: Member = { ...member, ...patch };
+  await updateDoc(doc(db, 'members', member.id), { ...patch });
+  // Le statut du compte découle des pièces ; on le recalcule côté affichage (isDossierComplete), pas en base.
+  void after;
   return patch;
+}
+
+/** Membres des régions suivies par un coordinateur (une requête par région : exigé par les règles de sécurité). */
+export async function listMembersForRegions(regionIds: string[]): Promise<Member[]> {
+  const snaps = await Promise.all(regionIds.map((r) => getDocs(query(collection(db, 'members'), where('regionId', '==', r)))));
+  return snaps.flatMap((snap) => snap.docs.map((d) => ({ ...(d.data() as Omit<Member, 'id'>), id: d.id }) as Member));
+}
+
+/** Réservé à l'administration : nomme (ou retire) un coordinateur régional et fixe ses régions. */
+export async function setMemberRole(uid: string, role: Member['role'], regions: string[]): Promise<void> {
+  await updateDoc(doc(db, 'members', uid), {
+    role,
+    coordinatorRegions: role === 'regional_coordinator' ? regions : [],
+  });
 }
 
 // ---------------------------------------------------------------------------

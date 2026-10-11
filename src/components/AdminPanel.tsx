@@ -1,10 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ElectoralStatus, Language, Member } from '../types';
 import { MOROCCAN_REGIONS } from '../data/regions';
-import { DOC_KINDS, DOC_LABELS, DocKind, docStatusOf, dossierProgress, dossierState } from '../utils/dossier';
+import { DOC_KINDS, DOC_LABELS, DocKind, POSTAL_KINDS, docStatusOf, dossierProgress, dossierState, isPostal } from '../utils/dossier';
 import {
   describeError,
-  fetchMemberDocument,
+  fetchElectoralProof,
+  listMembersForRegions,
+  setMemberRole,
   listAllMembers,
   setDocumentDecision,
   setMemberBadge,
@@ -41,7 +43,10 @@ const statusOf = (m: Member): ElectoralStatus => dossierState(m);
 
 export const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser, lang }) => {
   const isAr = lang === 'ar';
-  const allowed = currentUser?.role === 'admin' || currentUser?.role === 'bureau_politique';
+  const isStaff = currentUser?.role === 'admin' || currentUser?.role === 'bureau_politique';
+  const isCoordinator = currentUser?.role === 'regional_coordinator';
+  const myRegions = currentUser?.coordinatorRegions ?? [];
+  const allowed = isStaff || (isCoordinator && myRegions.length > 0);
 
   const [members, setMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
@@ -55,13 +60,14 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser, lang }) => 
     setLoading(true);
     setError('');
     try {
-      setMembers(await listAllMembers());
+      // Le coordinateur ne charge que les membres de ses régions ; l'administration charge tout.
+      setMembers(isStaff ? await listAllMembers() : await listMembersForRegions(myRegions));
     } catch (err) {
       setError(describeError(err, isAr));
     } finally {
       setLoading(false);
     }
-  }, [isAr]);
+  }, [isAr, isStaff, myRegions.join(',')]);
 
   useEffect(() => {
     if (allowed) load();
@@ -174,7 +180,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser, lang }) => 
           className="px-4 py-3 rounded-xl border border-slate-300 text-sm bg-white"
         >
           <option value="all">{isAr ? 'كل الجهات' : 'Toutes les régions'}</option>
-          {MOROCCAN_REGIONS.map((r) => (
+          {MOROCCAN_REGIONS.filter((r) => isStaff || myRegions.includes(r.id)).map((r) => (
             <option key={r.id} value={r.id}>
               {isAr ? r.nameAr : r.nameFr}
             </option>
@@ -231,7 +237,15 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser, lang }) => 
       )}
 
       {selected && (
-        <MemberDetail member={selected} lang={lang} onClose={() => setSelected(null)} onDecided={handleDecided} onRegionChanged={handleRegionChanged} />
+        <MemberDetail
+          member={selected}
+          lang={lang}
+          canAdmin={isStaff}
+          selfId={currentUser?.id}
+          onClose={() => setSelected(null)}
+          onDecided={handleDecided}
+          onRegionChanged={handleRegionChanged}
+        />
       )}
     </div>
   );
@@ -243,9 +257,11 @@ interface MemberDetailProps {
   onClose: () => void;
   onDecided: (uid: string, patch: Partial<Member>) => void;
   onRegionChanged: (uid: string, regionId: string, province: string) => void;
+  canAdmin: boolean;
+  selfId?: string;
 }
 
-const MemberDetail: React.FC<MemberDetailProps> = ({ member, lang, onClose, onDecided, onRegionChanged }) => {
+const MemberDetail: React.FC<MemberDetailProps> = ({ member, lang, onClose, onDecided, onRegionChanged, canAdmin, selfId }) => {
   const isAr = lang === 'ar';
   const [proof, setProof] = useState<{ dataUrl: string; mime: string; name: string } | null>(null);
   const [proofLoading, setProofLoading] = useState(true);
@@ -257,6 +273,9 @@ const MemberDetail: React.FC<MemberDetailProps> = ({ member, lang, onClose, onDe
   const [newRegionId, setNewRegionId] = useState(member.regionId);
   const [newProvince, setNewProvince] = useState(member.province);
   const [regionSaved, setRegionSaved] = useState(false);
+  const [roleSel, setRoleSel] = useState<Member['role']>(member.role);
+  const [regionsSel, setRegionsSel] = useState<string[]>(member.coordinatorRegions ?? []);
+  const [roleSaved, setRoleSaved] = useState(false);
   const region = MOROCCAN_REGIONS.find((r) => r.id === member.regionId);
   const firstToCheck = DOC_KINDS.find((k) => docStatusOf(member, k) === 'submitted') ?? DOC_KINDS[0];
   const [kind, setKind] = useState<DocKind>(firstToCheck);
@@ -266,7 +285,12 @@ const MemberDetail: React.FC<MemberDetailProps> = ({ member, lang, onClose, onDe
     let cancelled = false;
     setProofLoading(true);
     setProof(null);
-    fetchMemberDocument(member.id, kind)
+    if (isPostal(kind)) {
+      // Pièce papier : rien n'est stocké en ligne, le coordinateur la contrôle en main propre.
+      setProofLoading(false);
+      return;
+    }
+    fetchElectoralProof(member.id)
       .then((p) => !cancelled && setProof(p))
       .catch((err) => !cancelled && setError(describeError(err, isAr)))
       .finally(() => !cancelled && setProofLoading(false));
@@ -275,11 +299,11 @@ const MemberDetail: React.FC<MemberDetailProps> = ({ member, lang, onClose, onDe
     };
   }, [member.id, kind, isAr]);
 
-  const decide = async (decision: ElectoralStatus) => {
+  const decide = async (decision: ElectoralStatus, kinds: DocKind[] = [kind]) => {
     setBusy(true);
     setError('');
     try {
-      const patch = await setDocumentDecision(member, kind, decision);
+      const patch = await setDocumentDecision(member, kinds, decision);
       onDecided(member.id, patch);
     } catch (err) {
       setError(describeError(err, isAr));
@@ -331,6 +355,8 @@ const MemberDetail: React.FC<MemberDetailProps> = ({ member, lang, onClose, onDe
             ))}
           </dl>
 
+          {canAdmin && (
+            <>
           <div>
             <h4 className="font-bold text-slate-900 mb-2">{isAr ? 'الجهة والإقليم' : 'Région et province'}</h4>
             <div className="flex flex-col sm:flex-row gap-2">
@@ -435,6 +461,67 @@ const MemberDetail: React.FC<MemberDetailProps> = ({ member, lang, onClose, onDe
           </div>
 
           <div>
+            <h4 className="font-bold text-slate-900 mb-2">{isAr ? 'الدور والجهات المتابعة' : 'Rôle et régions suivies'}</h4>
+            <div className="flex flex-col gap-3">
+              <select
+                value={roleSel}
+                onChange={(e) => {
+                  setRoleSel(e.target.value as Member['role']);
+                  setRoleSaved(false);
+                }}
+                className="px-4 py-2.5 rounded-xl border border-slate-300 text-sm bg-white"
+              >
+                <option value="member">{isAr ? 'منخرط' : 'Adhérent'}</option>
+                <option value="regional_coordinator">{isAr ? 'منسق جهوي' : 'Coordinateur régional'}</option>
+                <option value="bureau_politique">{isAr ? 'المكتب السياسي (صلاحيات كاملة)' : 'Bureau politique (accès complet)'}</option>
+              </select>
+              {roleSel === 'regional_coordinator' && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                  {MOROCCAN_REGIONS.map((r) => (
+                    <label key={r.id} className="flex items-center gap-2 text-xs text-slate-700">
+                      <input
+                        type="checkbox"
+                        checked={regionsSel.includes(r.id)}
+                        onChange={(e) => {
+                          setRegionsSel((prev) => (e.target.checked ? [...prev, r.id] : prev.filter((x) => x !== r.id)));
+                          setRoleSaved(false);
+                        }}
+                      />
+                      <span>{isAr ? r.nameAr : r.nameFr}</span>
+                    </label>
+                  ))}
+                </div>
+              )}
+              <div>
+                <button
+                  type="button"
+                  disabled={busy || (roleSel === 'regional_coordinator' && regionsSel.length === 0) || (roleSel === member.role && roleSel !== 'regional_coordinator')}
+                  onClick={async () => {
+                    setBusy(true);
+                    setError('');
+                    try {
+                      await setMemberRole(member.id, roleSel, regionsSel);
+                      onDecided(member.id, { role: roleSel, coordinatorRegions: roleSel === 'regional_coordinator' ? regionsSel : [] });
+                      setRoleSaved(true);
+                    } catch (err) {
+                      setError(describeError(err, isAr));
+                    } finally {
+                      setBusy(false);
+                    }
+                  }}
+                  className="px-4 py-2.5 rounded-xl bg-emerald-700 text-white text-sm font-bold disabled:opacity-50"
+                >
+                  {isAr ? 'حفظ الدور' : 'Enregistrer le rôle'}
+                </button>
+                {roleSaved && <span className="ms-3 text-xs text-emerald-700 font-semibold">{isAr ? 'تم الحفظ' : 'Rôle enregistré'}</span>}
+              </div>
+            </div>
+          </div>
+
+            </>
+          )}
+
+          <div>
             <h4 className="font-bold text-slate-900 mb-2">
               {isAr ? 'وثائق الملف' : 'Pièces du dossier'} ({dossierProgress(member)}/{DOC_KINDS.length})
             </h4>
@@ -458,7 +545,20 @@ const MemberDetail: React.FC<MemberDetailProps> = ({ member, lang, onClose, onDe
                 );
               })}
             </div>
-            {proofLoading ? (
+            {isPostal(kind) ? (
+              <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 text-sm text-amber-900 space-y-2">
+                <p>
+                  {isAr
+                    ? 'وثيقة ورقية: يتم التحقق منها بتسلم النسخة الأصلية من المنخرط. لا يوجد ملف مخزن على الإنترنت.'
+                    : 'Pièce papier : elle se contrôle en main propre sur l’original remis par l’adhérent. Aucun fichier n’est stocké en ligne.'}
+                </p>
+                <p className="text-xs">
+                  {isAr
+                    ? 'تحقق من أن الاسم ورقم البطاقة الوطنية والتوقيع المصادق عليه تطابق بيانات الملف أعلاه.'
+                    : 'Vérifiez que le nom, le numéro de CIN et la signature légalisée correspondent aux données de la fiche ci-dessus.'}
+                </p>
+              </div>
+            ) : proofLoading ? (
               <Loader2 className="w-6 h-6 text-emerald-600 animate-spin" />
             ) : !proof ? (
               <p className="text-sm text-slate-500 p-4 rounded-xl bg-slate-50 border border-slate-200">
@@ -486,6 +586,15 @@ const MemberDetail: React.FC<MemberDetailProps> = ({ member, lang, onClose, onDe
             {isAr ? STATUS_META[status].ar : STATUS_META[status].fr}
           </span>
           <div className="flex flex-wrap gap-2">
+            {selfId !== member.id && POSTAL_KINDS.some((k) => docStatusOf(member, k) !== 'verified') && (
+              <button
+                onClick={() => decide('verified', POSTAL_KINDS)}
+                disabled={busy}
+                className="px-4 py-2.5 rounded-xl bg-slate-900 text-white text-sm font-bold disabled:opacity-60"
+              >
+                {isAr ? 'استلام الوثائق الورقية الثلاث (مطابقة)' : 'Reçu en main : 3 pièces papier conformes'}
+              </button>
+            )}
             {status !== 'rejected' && (
               <button
                 onClick={() => decide('rejected')}
@@ -507,8 +616,8 @@ const MemberDetail: React.FC<MemberDetailProps> = ({ member, lang, onClose, onDe
             {status !== 'verified' && (
               <button
                 onClick={() => decide('verified')}
-                disabled={busy || !proof}
-                title={!proof ? (isAr ? 'لا توجد وثيقة' : 'Aucune pièce à valider') : undefined}
+                disabled={busy || (!isPostal(kind) && !proof)}
+                title={!isPostal(kind) && !proof ? (isAr ? 'لا توجد وثيقة' : 'Aucune pièce à valider') : undefined}
                 className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-sm font-bold disabled:opacity-50"
               >
                 {busy && <Loader2 className="w-4 h-4 animate-spin" />}

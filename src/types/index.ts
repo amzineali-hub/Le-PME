@@ -60,6 +60,8 @@ export interface Member {
   engagementStatus?: DocStatus;
   cinRectoStatus?: DocStatus;
   cinVersoStatus?: DocStatus;
+  /** Régions suivies par un coordinateur régional (rôle regional_coordinator), attribuées par l'administration. */
+  coordinatorRegions?: string[];
   electoralProofName?: string;
   electoralDetails?: ElectoralVerificationResult;
   contributionBadge: string;

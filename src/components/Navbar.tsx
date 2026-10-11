@@ -48,7 +48,7 @@ export const Navbar: React.FC<NavbarProps> = ({
     { id: 'resources', label: t.nav.resources },
     { id: 'forum', label: t.nav.forum },
     { id: 'news', label: t.nav.news },
-    ...(currentUser && (currentUser.role === 'admin' || currentUser.role === 'bureau_politique')
+    ...(currentUser && (currentUser.role === 'admin' || currentUser.role === 'bureau_politique' || currentUser.role === 'regional_coordinator')
       ? [{ id: 'admin', label: isAr ? 'الإدارة' : 'Administration' }]
       : []),
   ];

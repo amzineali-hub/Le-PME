@@ -5,30 +5,34 @@ export type DocKind = 'engagement' | 'cinRecto' | 'cinVerso' | 'electoral';
 
 export const DOC_KINDS: DocKind[] = ['engagement', 'cinRecto', 'cinVerso', 'electoral'];
 
+/** Pièces papier : remises en main propre (ou par courrier) au coordinateur régional, jamais téléversées. */
+export const POSTAL_KINDS: DocKind[] = ['engagement', 'cinRecto', 'cinVerso'];
+export const isPostal = (k: DocKind): boolean => POSTAL_KINDS.includes(k);
+
 export const DOC_LABELS: Record<DocKind, { fr: string; ar: string; hintFr: string; hintAr: string }> = {
   engagement: {
     fr: 'Engagement signé et légalisé',
     ar: 'الالتزام الموقع والمصادق عليه',
-    hintFr: 'PDF de l’engagement, signature légalisée.',
-    hintAr: 'ملف PDF للالتزام مع التوقيع المصادق عليه.',
+    hintFr: 'Original signé, signature légalisée, à remettre au coordinateur.',
+    hintAr: 'النسخة الأصلية الموقعة والمصادق عليها، تسلم للمنسق.',
   },
   cinRecto: {
     fr: 'CIN — recto',
     ar: 'البطاقة الوطنية — الوجه',
-    hintFr: 'PDF de la face avant de votre carte nationale.',
-    hintAr: 'ملف PDF للوجه الأمامي لبطاقتك الوطنية.',
+    hintFr: 'Photocopie du recto, à remettre au coordinateur.',
+    hintAr: 'نسخة الوجه الأمامي، تسلم للمنسق.',
   },
   cinVerso: {
     fr: 'CIN — verso',
     ar: 'البطاقة الوطنية — الظهر',
-    hintFr: 'PDF de la face arrière de votre carte nationale.',
-    hintAr: 'ملف PDF للوجه الخلفي لبطاقتك الوطنية.',
+    hintFr: 'Photocopie du verso, à remettre au coordinateur.',
+    hintAr: 'نسخة الوجه الخلفي، تسلم للمنسق.',
   },
   electoral: {
     fr: 'Fiche d’inscription sur les listes électorales',
     ar: 'وصل القيد في اللوائح الانتخابية',
-    hintFr: 'PDF de la fiche délivrée par le ministère de l’Intérieur.',
-    hintAr: 'ملف PDF للوصل الصادر عن وزارة الداخلية.',
+    hintFr: 'Capture ou PDF de la page « Vérifiez votre inscription » du ministère.',
+    hintAr: 'لقطة أو PDF لصفحة «تأكدوا من تسجيلكم» الخاصة بوزارة الداخلية.',
   },
 };
 

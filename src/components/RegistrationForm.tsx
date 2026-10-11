@@ -175,6 +175,10 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({
 
   // Création du compte + de la fiche adhérent, puis émission de la carte
   const handleSubmitRegistration = async () => {
+    if (!proof) {
+      setSubmitError(isAr ? 'وصل القيد في اللوائح الانتخابية إلزامي.' : 'La fiche d’inscription électorale est obligatoire.');
+      return;
+    }
     setIsSubmitting(true);
     setSubmitError('');
     try {
@@ -744,8 +748,8 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({
               </h2>
               <p className="text-slate-600 text-sm">
                 {isAr
-                  ? 'تحقق من قيدك على موقع وزارة الداخلية، ثم أرفق نسخة (PDF) من الوصل. يمكنك أيضاً إيداعها لاحقاً من فضائك الخاص.'
-                  : 'Vérifiez votre inscription sur le site du ministère de l’Intérieur, puis joignez la fiche (PDF). Vous pouvez aussi la déposer plus tard depuis votre espace.'}
+                  ? 'أدخل إلى موقع اللوائح الانتخابية، تأكد من قيدك، والتقط صورة للشاشة (لقطة) ثم أرفقها هنا. هذه الوثيقة إلزامية للانخراط كعضو مؤسس.'
+                  : 'Rendez-vous sur le site des listes électorales, vérifiez votre inscription, faites une capture d’écran de la page de résultat, puis joignez-la ici. Cette pièce est obligatoire pour être membre fondateur.'}
               </p>
             </div>
 
@@ -757,7 +761,7 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({
                 className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl border-2 border-emerald-300 bg-emerald-50 text-emerald-900 font-bold text-sm hover:bg-emerald-100 transition-colors"
               >
                 <ExternalLink className="w-4 h-4" />
-                <span>{isAr ? 'التحقق من قيدي (موقع وزارة الداخلية)' : 'Vérifier mon inscription (site du ministère de l’Intérieur)'}</span>
+                <span>{isAr ? 'فتح www.listeselectorales.ma والتحقق من قيدي' : 'Ouvrir www.listeselectorales.ma et vérifier mon inscription'}</span>
               </a>
 
               <label className="block cursor-pointer rounded-2xl border-2 border-dashed border-slate-300 hover:border-emerald-500 bg-slate-50 p-6 text-center transition-colors">
@@ -772,15 +776,15 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({
                   {proof
                     ? proof.name
                     : isAr
-                    ? 'اضغط لاختيار ملف PDF'
-                    : 'Touchez pour choisir le fichier PDF'}
+                    ? 'اضغط لاختيار لقطة الشاشة (أو ملف PDF)'
+                    : 'Touchez pour choisir votre capture d’écran (ou un PDF)'}
                 </div>
                 <div className="text-[11px] text-slate-500 mt-1">
-                  {isAr ? 'ملف PDF فقط (700 كيلوبايت كحد أقصى)' : 'PDF uniquement (700 Ko maximum)'}
+                  {isAr ? 'تتحول اللقطة تلقائياً إلى PDF (700 كيلوبايت كحد أقصى)' : 'La capture est convertie automatiquement en PDF (700 Ko maximum)'}
                 </div>
                 <input
                   type="file"
-                  accept="application/pdf,.pdf"
+                  accept="application/pdf,.pdf,image/*"
                   onChange={handleProofUpload}
                   className="hidden"
                 />
@@ -788,8 +792,8 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({
 
               <div className="rounded-xl bg-amber-50 border border-amber-300 p-3 text-xs text-amber-900 leading-relaxed">
                 {isAr
-                  ? 'بعد التسجيل، سيطلب منك إيداع الالتزام الموقع والمصادق عليه، ونسخة من بطاقتك الوطنية (الوجه والظهر)، ووصل قيدك في اللوائح الانتخابية من فضائك الخاص. تبقى بطاقة العضو المؤسس في انتظار الوثائق المصادق عليها.'
-                  : 'Après l’inscription, vous devrez déposer depuis votre espace : l’engagement signé et légalisé, votre CIN recto et verso, et votre fiche électorale. Votre carte de membre fondateur reste en instance jusqu’à validation de ces pièces.'}
+                  ? 'بعد التسجيل، ستسلّم الوثائق الورقية لمنسق جهتك: الالتزام الموقع والمصادق عليه ونسخة من بطاقتك الوطنية (الوجه والظهر). تبقى بطاقة العضو المؤسس في انتظار الوثائق المصادق عليها.'
+                  : 'Après l’inscription, vous remettrez à votre coordinateur régional les pièces papier : l’engagement signé et légalisé, et la photocopie de votre CIN (recto et verso). Votre carte de membre fondateur reste en instance jusqu’à validation de toutes les pièces.'}
               </div>
 
               <p className="text-[11px] text-slate-500 flex items-start gap-1.5">
@@ -818,14 +822,14 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({
               <button
                 type="button"
                 onClick={handleSubmitRegistration}
-                disabled={isSubmitting || proofBusy}
+                disabled={isSubmitting || proofBusy || !proof}
                 className="w-full sm:w-auto flex items-center justify-center gap-2 bg-emerald-700 hover:bg-emerald-800 disabled:opacity-60 text-white font-bold py-3.5 px-6 sm:px-8 rounded-xl shadow-lg hover:shadow-xl transition-all active:scale-98"
               >
                 {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4 text-emerald-300" />}
                 <span>
                   {proof
                     ? isAr ? 'إنهاء الانخراط' : 'Finaliser mon adhésion'
-                    : isAr ? 'إنهاء الانخراط (إيداع الملف لاحقاً)' : 'Finaliser (déposer la fiche plus tard)'}
+                    : isAr ? 'أرفق لقطة الشاشة للمتابعة' : 'Joignez la capture pour continuer'}
                 </span>
               </button>
             </div>
