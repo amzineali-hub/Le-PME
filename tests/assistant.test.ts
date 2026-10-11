@@ -83,6 +83,14 @@ await test('la base de connaissance contient le projet politique et le guide d\'
   assert.ok(knowledge.includes('2727'));
   assert.ok(knowledge.length > 20_000, `trop court : ${knowledge.length}`);
 });
+await test('chiffres et régions : la base reste cohérente avec les données du site', async () => {
+  const { MEMBERS_COUNT } = await import('../src/data/siteStats');
+  const { MOROCCAN_REGIONS } = await import('../src/data/regions');
+  assert.ok(knowledge.includes(`Nombre d'adhérents : ${MEMBERS_COUNT}`), 'nombre d adhérents');
+  assert.equal(MOROCCAN_REGIONS.length, 12);
+  for (const r of MOROCCAN_REGIONS) assert.ok(knowledge.includes(r.nameFr) && knowledge.includes(r.nameAr), 'région absente : ' + r.nameFr);
+  for (const r of MOROCCAN_REGIONS) assert.ok(!knowledge.includes(r.coordinatorName), 'nom de coordinateur fictif exposé : ' + r.coordinatorName);
+});
 await test('le fondateur : TOUTES les données du JSON (site) se retrouvent dans la base de l assistant', () => {
   const d = JSON.parse(fs.readFileSync(path.join(here, '..', 'knowledge', 'fondateur.json'), 'utf8'));
   const all: string[] = [d.name.ar, d.name.fr, d.headline.ar, d.headline.fr, d.city.ar, d.city.fr, d.profile.fr, d.profileTitle.ar, d.profileTitle.fr, d.facebookGroup];
