@@ -1,5 +1,6 @@
 import { Member } from '../types';
 import { MOROCCAN_REGIONS } from '../data/regions';
+import { DOC_KINDS, DOC_LABELS, docStatusOf, dossierProgress } from './dossier';
 
 const esc = (v: unknown) =>
   String(v ?? '')
@@ -35,6 +36,13 @@ export function printRegistrationSheet(member: Member): void {
     ['Téléphone', 'الهاتف', member.phone],
     ['Profession', 'المهنة', member.profession],
     ['Commission souhaitée', 'اللجنة المرغوب فيها', member.commissionInterest],
+    [
+      'Dossier d’adhésion (pièces validées)',
+      'ملف الانخراط (الوثائق المصادق عليها)',
+      `${dossierProgress(member)}/${DOC_KINDS.length} — ${DOC_KINDS.filter((k) => docStatusOf(member, k) !== 'verified')
+        .map((k) => DOC_LABELS[k].fr)
+        .join(', ') || 'complet'}`,
+    ],
     [
       'Inscription sur les listes électorales',
       'التسجيل في اللوائح الانتخابية',

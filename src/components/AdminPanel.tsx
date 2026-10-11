@@ -1,11 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ElectoralStatus, Language, Member } from '../types';
 import { MOROCCAN_REGIONS } from '../data/regions';
+import { DOC_KINDS, DOC_LABELS, DocKind, docStatusOf, dossierProgress, dossierState } from '../utils/dossier';
 import {
   describeError,
-  fetchElectoralProof,
+  fetchMemberDocument,
   listAllMembers,
-  setElectoralDecision,
+  setDocumentDecision,
   setMemberBadge,
   setMemberRegion,
 } from '../services/memberService';
@@ -31,12 +32,12 @@ type Filter = 'all' | ElectoralStatus;
 
 const STATUS_META: Record<ElectoralStatus, { fr: string; ar: string; tone: string; icon: React.ElementType }> = {
   submitted: { fr: 'À contrôler', ar: 'للمراجعة', tone: 'bg-amber-100 text-amber-900 border-amber-300', icon: Clock },
-  verified: { fr: 'Vérifiée', ar: 'تم التحقق', tone: 'bg-emerald-100 text-emerald-900 border-emerald-300', icon: CheckCircle2 },
-  rejected: { fr: 'Refusée', ar: 'مرفوضة', tone: 'bg-red-100 text-red-900 border-red-300', icon: XCircle },
-  none: { fr: 'Non déposée', ar: 'غير مودعة', tone: 'bg-slate-100 text-slate-700 border-slate-300', icon: FileQuestion },
+  verified: { fr: 'Dossier complet', ar: 'ملف مكتمل', tone: 'bg-emerald-100 text-emerald-900 border-emerald-300', icon: CheckCircle2 },
+  rejected: { fr: 'À corriger', ar: 'للتصحيح', tone: 'bg-red-100 text-red-900 border-red-300', icon: XCircle },
+  none: { fr: 'Incomplet', ar: 'ناقص', tone: 'bg-slate-100 text-slate-700 border-slate-300', icon: FileQuestion },
 };
 
-const statusOf = (m: Member): ElectoralStatus => m.electoralStatus ?? 'none';
+const statusOf = (m: Member): ElectoralStatus => dossierState(m);
 
 export const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser, lang }) => {
   const isAr = lang === 'ar';
@@ -106,15 +107,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ currentUser, lang }) => 
     setSelected((s) => (s && s.id === uid ? { ...s, regionId, province } : s));
   };
 
-  const handleDecided = (uid: string, decision: ElectoralStatus) => {
-    setMembers((prev) =>
-      prev.map((m) =>
-        m.id === uid
-          ? { ...m, electoralStatus: decision, isElectorallyVerified: decision === 'verified', status: decision === 'verified' ? 'active' : 'pending_verification' }
-          : m
-      )
-    );
-    setSelected((s) => (s && s.id === uid ? { ...s, electoralStatus: decision } : s));
+  const handleDecided = (uid: string, patch: Partial<Member>) => {
+    setMembers((prev) => prev.map((m) => (m.id === uid ? { ...m, ...patch } : m)));
+    setSelected((s) => (s && s.id === uid ? { ...s, ...patch } : s));
   };
 
   const filters: Filter[] = ['submitted', 'verified', 'rejected', 'none', 'all'];
@@ -246,7 +241,7 @@ interface MemberDetailProps {
   member: Member;
   lang: Language;
   onClose: () => void;
-  onDecided: (uid: string, decision: ElectoralStatus) => void;
+  onDecided: (uid: string, patch: Partial<Member>) => void;
   onRegionChanged: (uid: string, regionId: string, province: string) => void;
 }
 
@@ -263,27 +258,29 @@ const MemberDetail: React.FC<MemberDetailProps> = ({ member, lang, onClose, onDe
   const [newProvince, setNewProvince] = useState(member.province);
   const [regionSaved, setRegionSaved] = useState(false);
   const region = MOROCCAN_REGIONS.find((r) => r.id === member.regionId);
-  const status = statusOf(member);
+  const firstToCheck = DOC_KINDS.find((k) => docStatusOf(member, k) === 'submitted') ?? DOC_KINDS[0];
+  const [kind, setKind] = useState<DocKind>(firstToCheck);
+  const status = docStatusOf(member, kind);
 
   useEffect(() => {
     let cancelled = false;
     setProofLoading(true);
     setProof(null);
-    fetchElectoralProof(member.id)
+    fetchMemberDocument(member.id, kind)
       .then((p) => !cancelled && setProof(p))
       .catch((err) => !cancelled && setError(describeError(err, isAr)))
       .finally(() => !cancelled && setProofLoading(false));
     return () => {
       cancelled = true;
     };
-  }, [member.id, isAr]);
+  }, [member.id, kind, isAr]);
 
   const decide = async (decision: ElectoralStatus) => {
     setBusy(true);
     setError('');
     try {
-      await setElectoralDecision(member.id, decision);
-      onDecided(member.id, decision);
+      const patch = await setDocumentDecision(member, kind, decision);
+      onDecided(member.id, patch);
     } catch (err) {
       setError(describeError(err, isAr));
     } finally {
@@ -438,12 +435,34 @@ const MemberDetail: React.FC<MemberDetailProps> = ({ member, lang, onClose, onDe
           </div>
 
           <div>
-            <h4 className="font-bold text-slate-900 mb-2">{isAr ? 'وصل القيد في اللوائح الانتخابية' : 'Fiche d’inscription électorale'}</h4>
+            <h4 className="font-bold text-slate-900 mb-2">
+              {isAr ? 'وثائق الملف' : 'Pièces du dossier'} ({dossierProgress(member)}/{DOC_KINDS.length})
+            </h4>
+            <div className="flex flex-wrap gap-2 mb-3">
+              {DOC_KINDS.map((k) => {
+                const st = docStatusOf(member, k);
+                const meta = STATUS_META[st];
+                const active = k === kind;
+                return (
+                  <button
+                    key={k}
+                    type="button"
+                    onClick={() => setKind(k)}
+                    className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold border ${
+                      active ? 'border-emerald-600 ring-2 ring-emerald-200 bg-emerald-50 text-emerald-900' : 'border-slate-300 bg-white text-slate-700'
+                    }`}
+                  >
+                    <meta.icon className="w-3.5 h-3.5" />
+                    <span>{isAr ? DOC_LABELS[k].ar : DOC_LABELS[k].fr}</span>
+                  </button>
+                );
+              })}
+            </div>
             {proofLoading ? (
               <Loader2 className="w-6 h-6 text-emerald-600 animate-spin" />
             ) : !proof ? (
               <p className="text-sm text-slate-500 p-4 rounded-xl bg-slate-50 border border-slate-200">
-                {isAr ? 'لم يودع المنخرط أي وصل بعد.' : 'L’adhérent n’a pas encore déposé de fiche.'}
+                {isAr ? 'لم يودع المنخرط هذه الوثيقة بعد.' : 'L’adhérent n’a pas encore déposé cette pièce.'}
               </p>
             ) : proof.mime === 'application/pdf' ? (
               <div className="space-y-2">
@@ -473,7 +492,7 @@ const MemberDetail: React.FC<MemberDetailProps> = ({ member, lang, onClose, onDe
                 disabled={busy}
                 className="px-4 py-2.5 rounded-xl border border-red-300 text-red-700 hover:bg-red-50 text-sm font-bold disabled:opacity-60"
               >
-                {isAr ? 'رفض الوصل' : 'Refuser la fiche'}
+                {isAr ? 'رفض الوثيقة' : 'Refuser cette pièce'}
               </button>
             )}
             {status === 'verified' && (
@@ -489,11 +508,11 @@ const MemberDetail: React.FC<MemberDetailProps> = ({ member, lang, onClose, onDe
               <button
                 onClick={() => decide('verified')}
                 disabled={busy || !proof}
-                title={!proof ? (isAr ? 'لا يوجد وصل' : 'Aucune fiche à valider') : undefined}
+                title={!proof ? (isAr ? 'لا توجد وثيقة' : 'Aucune pièce à valider') : undefined}
                 className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-sm font-bold disabled:opacity-50"
               >
                 {busy && <Loader2 className="w-4 h-4 animate-spin" />}
-                <span>{isAr ? 'المصادقة على القيد' : 'Valider l’inscription'}</span>
+                <span>{isAr ? 'المصادقة على الوثيقة' : 'Valider cette pièce'}</span>
               </button>
             )}
           </div>

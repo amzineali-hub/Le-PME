@@ -4,7 +4,9 @@ import { MOROCCAN_REGIONS } from '../data/regions';
 import { TRANSLATIONS } from '../data/translations';
 import { PARTY_DOCUMENTS } from '../data/mockData';
 import { MembershipCard } from './MembershipCard';
-import { ElectoralProofCard } from './ElectoralProofCard';
+import { DossierCard } from './DossierCard';
+import { isDossierComplete } from '../utils/dossier';
+import { Member as MemberType } from '../types';
 import { ProfileEditor } from './ProfileEditor';
 import { MemberProfilePatch } from '../services/memberService';
 import {
@@ -35,7 +37,7 @@ interface MemberPortalProps {
   onGoToEvents?: () => void;
   onGoToResources?: () => void;
   onLogout: () => void;
-  onMemberUpdated?: (patch: MemberProfilePatch) => void;
+  onMemberUpdated?: (patch: Partial<MemberType>) => void;
 }
 
 export const MemberPortal: React.FC<MemberPortalProps> = ({
@@ -71,7 +73,7 @@ export const MemberPortal: React.FC<MemberPortalProps> = ({
                   className="w-full h-full object-cover"
                 />
               </div>
-              {member.electoralStatus === 'verified' && (
+              {isDossierComplete(member) && (
                 <span className="absolute -bottom-2 -right-2 px-1.5 py-0.5 rounded-full bg-emerald-500 text-slate-950 text-[10px] font-bold shadow">
                   ✓
                 </span>
@@ -138,7 +140,7 @@ export const MemberPortal: React.FC<MemberPortalProps> = ({
         </div>
       </div>
 
-      <ElectoralProofCard member={member} lang={lang} />
+      <DossierCard member={member} lang={lang} onMemberUpdated={onMemberUpdated} />
 
       {editingProfile && (
         <ProfileEditor

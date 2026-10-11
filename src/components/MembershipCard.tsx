@@ -3,6 +3,7 @@ import { Member, Language } from '../types';
 import { MOROCCAN_REGIONS } from '../data/regions';
 import { TRANSLATIONS } from '../data/translations';
 import { PartyLogo } from './PartyLogo';
+import { DOC_KINDS, DOC_LABELS, docStatusOf, dossierProgress, isDossierComplete } from '../utils/dossier';
 import { ShieldCheck, Award, QrCode, Download, Printer, CheckCircle2, RotateCw } from 'lucide-react';
 
 interface MembershipCardProps {
@@ -20,6 +21,25 @@ export const MembershipCard: React.FC<MembershipCardProps> = ({
   const [flipped, setFlipped] = React.useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
   const t = TRANSLATIONS[lang];
+
+  // La carte n'est « certifiée » que lorsque les quatre pièces du dossier sont validées.
+  const complete = isDossierComplete(member);
+  const progress = dossierProgress(member);
+
+  // Bandeau diagonal (en arabe uniquement, quelle que soit la langue du site) tant que le dossier est incomplet.
+  const ribbon = !complete ? (
+    <div
+      aria-hidden="true"
+      className="pointer-events-none absolute left-1/2 top-1/2 z-20 w-[170%] -translate-x-1/2 -translate-y-1/2 -rotate-[24deg]"
+    >
+      <div
+        dir="rtl"
+        className="font-arabic text-center text-white font-extrabold text-[15px] sm:text-base tracking-wide py-1 bg-red-700/85 border-y-2 border-amber-300 shadow-[0_4px_14px_rgba(0,0,0,0.45)]"
+      >
+        في انتظار الوثائق المصادق عليها
+      </div>
+    </div>
+  ) : null;
 
   const region = MOROCCAN_REGIONS.find((r) => r.id === member.regionId);
   const regionName = lang === 'ar' ? region?.nameAr || member.regionId : region?.nameFr || member.regionId;
@@ -55,6 +75,7 @@ export const MembershipCard: React.FC<MembershipCardProps> = ({
             {/* Geometric Moroccan Watermark Background */}
             <div className="absolute inset-0 opacity-[0.07] pointer-events-none bg-[radial-gradient(#f59e0b_1.5px,transparent_1.5px)] [background-size:16px_16px]" />
             <div className="absolute -right-16 -top-16 w-56 h-56 rounded-full bg-emerald-500/10 blur-2xl pointer-events-none" />
+            {ribbon}
 
             {/* Header: Kingdom & Party */}
             <div className="relative z-10 flex items-start justify-between border-b border-amber-400/30 pb-2.5">
@@ -80,14 +101,14 @@ export const MembershipCard: React.FC<MembershipCardProps> = ({
               <div className="text-right">
                 <span
                   className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${
-                    member.electoralStatus === 'verified'
+                    complete
                       ? 'bg-emerald-500/20 text-emerald-300 border-emerald-400/40'
                       : 'bg-amber-500/20 text-amber-300 border-amber-400/40'
                   }`}
                 >
                   <ShieldCheck className="w-3 h-3" />
                   <span>
-                    {member.electoralStatus === 'verified'
+                    {complete
                       ? lang === 'ar' ? 'موثق رسمياً' : 'Certifié'
                       : lang === 'ar' ? 'قيد المراجعة' : 'En cours de validation'}
                   </span>
@@ -154,11 +175,11 @@ export const MembershipCard: React.FC<MembershipCardProps> = ({
               <div className="flex items-center gap-1 text-emerald-300 font-medium">
                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
                 <span>
-                  {member.electoralStatus === 'verified'
-                    ? lang === 'ar' ? 'مسجل باللوائح الانتخابية' : 'Inscription électorale vérifiée'
-                    : member.electoralStatus === 'submitted'
-                    ? lang === 'ar' ? 'وصل القيد في انتظار المراجعة' : 'Fiche électorale en cours de contrôle'
-                    : lang === 'ar' ? 'وصل القيد غير مودع' : 'Fiche électorale à déposer'}
+                  {complete
+                    ? lang === 'ar' ? 'الملف مكتمل وموثق' : 'Dossier complet et validé'
+                    : lang === 'ar'
+                    ? `الملف: ${progress}/${DOC_KINDS.length} وثائق مصادق عليها`
+                    : `Dossier : ${progress}/${DOC_KINDS.length} pièces validées`}
                 </span>
               </div>
               <div className="flex items-center gap-1.5 text-white font-bold text-[11px]">
@@ -180,29 +201,29 @@ export const MembershipCard: React.FC<MembershipCardProps> = ({
             <div className="flex items-center justify-between gap-4 py-2">
               <div className="space-y-1.5 text-[10px] flex-1">
                 <div className="text-amber-300 font-bold uppercase tracking-wider text-[9px]">
-                  {lang === 'ar' ? 'القيد في اللوائح الانتخابية' : 'Inscription sur les listes électorales'}
+                  {lang === 'ar' ? 'ملف الانخراط' : 'Dossier d’adhésion'} ({progress}/{DOC_KINDS.length})
                 </div>
-                <div className="text-slate-300 bg-slate-900/60 p-2 rounded-lg border border-slate-800 space-y-0.5">
-                  <div>
-                    <span className="text-slate-400">{lang === 'ar' ? 'الحالة :' : 'Statut :'}</span>{' '}
-                    <span
-                      className={`font-semibold ${
-                        member.electoralStatus === 'verified'
-                          ? 'text-emerald-400'
-                          : member.electoralStatus === 'rejected'
-                          ? 'text-red-400'
-                          : 'text-amber-300'
-                      }`}
-                    >
-                      {{
-                        verified: lang === 'ar' ? 'تم التحقق' : 'Vérifiée par le parti',
-                        submitted: lang === 'ar' ? 'في انتظار المراجعة' : 'Fiche déposée, en attente',
-                        rejected: lang === 'ar' ? 'مرفوضة، أعد الإيداع' : 'Refusée, à redéposer',
-                        none: lang === 'ar' ? 'لم تُودع بعد' : 'Fiche non déposée',
-                      }[member.electoralStatus ?? 'none']}
-                    </span>
-                  </div>
-                </div>
+                <ul className="text-slate-300 bg-slate-900/60 p-2 rounded-lg border border-slate-800 space-y-0.5">
+                  {DOC_KINDS.map((kind) => {
+                    const st = docStatusOf(member, kind);
+                    const tone =
+                      st === 'verified' ? 'text-emerald-400' : st === 'rejected' ? 'text-red-400' : st === 'submitted' ? 'text-amber-300' : 'text-slate-500';
+                    const word =
+                      st === 'verified'
+                        ? lang === 'ar' ? 'مصادق' : 'validée'
+                        : st === 'submitted'
+                        ? lang === 'ar' ? 'قيد المراجعة' : 'en contrôle'
+                        : st === 'rejected'
+                        ? lang === 'ar' ? 'مرفوضة' : 'refusée'
+                        : lang === 'ar' ? 'ناقصة' : 'manquante';
+                    return (
+                      <li key={kind} className="flex items-center justify-between gap-2">
+                        <span className="truncate">{lang === 'ar' ? DOC_LABELS[kind].ar : DOC_LABELS[kind].fr}</span>
+                        <span className={`font-semibold shrink-0 ${tone}`}>{word}</span>
+                      </li>
+                    );
+                  })}
+                </ul>
               </div>
 
               {/* QR Code Container */}

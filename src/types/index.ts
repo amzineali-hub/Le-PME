@@ -29,6 +29,8 @@ export interface ElectoralVerificationResult {
 }
 
 export type ElectoralStatus = 'none' | 'submitted' | 'verified' | 'rejected';
+/** État d'une pièce du dossier d'adhésion (même valeurs que le statut électoral historique). */
+export type DocStatus = ElectoralStatus;
 
 export interface Member {
   id: string;
@@ -55,6 +57,9 @@ export interface Member {
   isElectorallyVerified: boolean;
   isEmailVerified: boolean;
   electoralStatus?: ElectoralStatus;
+  engagementStatus?: DocStatus;
+  cinRectoStatus?: DocStatus;
+  cinVersoStatus?: DocStatus;
   electoralProofName?: string;
   electoralDetails?: ElectoralVerificationResult;
   contributionBadge: string;

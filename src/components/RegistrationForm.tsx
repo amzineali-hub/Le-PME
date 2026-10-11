@@ -786,6 +786,12 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({
                 />
               </label>
 
+              <div className="rounded-xl bg-amber-50 border border-amber-300 p-3 text-xs text-amber-900 leading-relaxed">
+                {isAr
+                  ? 'بعد التسجيل، سيطلب منك إيداع الالتزام الموقع والمصادق عليه، ونسخة من بطاقتك الوطنية (الوجه والظهر)، ووصل قيدك في اللوائح الانتخابية من فضائك الخاص. تبقى بطاقة العضو المؤسس في انتظار الوثائق المصادق عليها.'
+                  : 'Après l’inscription, vous devrez déposer depuis votre espace : l’engagement signé et légalisé, votre CIN recto et verso, et votre fiche électorale. Votre carte de membre fondateur reste en instance jusqu’à validation de ces pièces.'}
+              </div>
+
               <p className="text-[11px] text-slate-500 flex items-start gap-1.5">
                 <Lock className="w-3.5 h-3.5 text-emerald-700 shrink-0 mt-0.5" />
                 <span>

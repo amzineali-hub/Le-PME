@@ -66,6 +66,12 @@ service cloud.firestore {
         && request.resource.data.counts[option] == resource.data.counts.get(option, 0) + 1;
     }
 
+    // Une pièce déposée par l'adhérent passe de « none/rejected » à « submitted » ; seule l'administration valide.
+    function flagUnchangedOrSubmitted(key) {
+      return request.resource.data.get(key, 'none') == resource.data.get(key, 'none')
+        || (request.resource.data.get(key, 'none') == 'submitted' && resource.data.get(key, 'none') in ['none', 'rejected']);
+    }
+
     match /members/{uid} {
       allow get: if signedIn() && (request.auth.uid == uid || isAdmin());
       allow list: if isAdmin();
@@ -88,6 +94,12 @@ service cloud.firestore {
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['electoralStatus', 'electoralProofName'])
           && request.resource.data.electoralStatus == 'submitted'
           && resource.data.electoralStatus in ['none', 'rejected'])
+        || (signedIn()
+          && request.auth.uid == uid
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['engagementStatus', 'cinRectoStatus', 'cinVersoStatus'])
+          && flagUnchangedOrSubmitted('engagementStatus')
+          && flagUnchangedOrSubmitted('cinRectoStatus')
+          && flagUnchangedOrSubmitted('cinVersoStatus'))
         || (signedIn()
           && request.auth.uid == uid
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(
@@ -198,6 +210,21 @@ service cloud.firestore {
         && (get(/databases/$(database)/documents/polls/$(request.resource.data.pollId)).data.type != 'internal_election'
             || memberDoc().status == 'active');
       allow update, delete: if false;
+    }
+
+    // Engagement signé, CIN recto/verso : un document par (membre, pièce), identifiant « uid_pièce ».
+    match /docs/{docId} {
+      allow get: if signedIn() && (docId.matches(request.auth.uid + '_.*') || isAdmin());
+      allow create, update: if isMember()
+        && request.resource.data.keys().hasOnly(['uid', 'kind', 'dataUrl', 'mime', 'name', 'uploadedAt'])
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.kind in ['engagement', 'cinRecto', 'cinVerso']
+        && docId == request.auth.uid + '_' + request.resource.data.kind
+        && request.resource.data.mime in ['image/jpeg', 'application/pdf']
+        && request.resource.data.dataUrl.size() < 900000
+        && request.resource.data.uploadedAt == request.time
+        && memberDoc().get(request.resource.data.kind + 'Status', 'none') in ['none', 'rejected'];
+      allow list, delete: if false;
     }
 
     match /{document=**} {

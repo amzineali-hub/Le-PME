@@ -9,6 +9,7 @@ import {
 import { collection, doc, getDoc, getDocs, serverTimestamp, updateDoc, writeBatch } from 'firebase/firestore';
 import { auth, db } from '../firebase';
 import { ElectoralStatus, Member } from '../types';
+import { DocKind, docStatusOf, DOC_KINDS, statusField } from '../utils/dossier';
 
 export type NewMemberData = Omit<Member, 'id' | 'role' | 'status' | 'isElectorallyVerified' | 'isEmailVerified' | 'electoralStatus'>;
 
@@ -168,6 +169,15 @@ export async function submitElectoralProof(uid: string, proof: ElectoralProof): 
   await batch.commit();
 }
 
+/** Dépôt d'une pièce du dossier (engagement, CIN recto/verso, fiche électorale). */
+export async function submitDocument(uid: string, kind: DocKind, proof: ElectoralProof): Promise<void> {
+  if (kind === 'electoral') return submitElectoralProof(uid, proof);
+  const batch = writeBatch(db);
+  batch.set(doc(db, 'docs', `${uid}_${kind}`), { uid, kind, ...proof, uploadedAt: serverTimestamp() });
+  batch.update(doc(db, 'members', uid), { [statusField(kind)]: 'submitted' });
+  await batch.commit();
+}
+
 export async function fetchMember(uid: string): Promise<Member | null> {
   const snap = await getDoc(doc(db, 'members', uid));
   return snap.exists() ? ({ ...(snap.data() as Omit<Member, 'id'>), id: uid } as Member) : null;
@@ -227,19 +237,28 @@ export async function listAllMembers(): Promise<Member[]> {
   return snap.docs.map((d) => ({ ...(d.data() as Omit<Member, 'id'>), id: d.id }) as Member);
 }
 
-export async function fetchElectoralProof(uid: string): Promise<{ dataUrl: string; mime: string; name: string } | null> {
-  const snap = await getDoc(doc(db, 'proofs', uid));
-  return snap.exists() ? (snap.data() as { dataUrl: string; mime: string; name: string }) : null;
+export type StoredDocument = { dataUrl: string; mime: string; name: string };
+
+/** Lit une pièce déposée (réservé à son propriétaire et à l'administration par firestore.rules). */
+export async function fetchMemberDocument(uid: string, kind: DocKind): Promise<StoredDocument | null> {
+  const snap = await getDoc(kind === 'electoral' ? doc(db, 'proofs', uid) : doc(db, 'docs', `${uid}_${kind}`));
+  return snap.exists() ? (snap.data() as StoredDocument) : null;
 }
 
-/** Valide, refuse ou remet en attente la fiche électorale d'un adhérent. */
-export async function setElectoralDecision(uid: string, decision: ElectoralStatus): Promise<void> {
-  const verified = decision === 'verified';
-  await updateDoc(doc(db, 'members', uid), {
-    electoralStatus: decision,
-    isElectorallyVerified: verified,
-    status: verified ? 'active' : 'pending_verification',
-  });
+/**
+ * Valide, refuse ou remet en attente UNE pièce du dossier.
+ * Le compte passe « actif » et « vérifié électoralement » seulement quand les quatre pièces sont validées.
+ */
+export async function setDocumentDecision(member: Member, kind: DocKind, decision: ElectoralStatus): Promise<Partial<Member>> {
+  const after: Member = { ...member, [statusField(kind)]: decision };
+  const complete = DOC_KINDS.every((k) => docStatusOf(after, k) === 'verified');
+  const patch: Partial<Member> = {
+    [statusField(kind)]: decision,
+    isElectorallyVerified: docStatusOf(after, 'electoral') === 'verified',
+    status: complete ? 'active' : 'pending_verification',
+  };
+  await updateDoc(doc(db, 'members', member.id), patch);
+  return patch;
 }
 
 // ---------------------------------------------------------------------------
