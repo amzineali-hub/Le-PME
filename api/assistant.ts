@@ -65,14 +65,64 @@ const DEFAULT_ORIGINS = [
 // ---------------------------------------------------------------------------
 // Base de connaissance
 // ---------------------------------------------------------------------------
+interface Bilingual {
+  ar: string;
+  fr: string;
+}
+export interface FounderData {
+  name: Bilingual;
+  headline: Bilingual;
+  city: Bilingual;
+  profile: Bilingual;
+  roles: Bilingual[];
+  skills: Bilingual[];
+  facebookGroup?: string;
+}
+
+/**
+ * Met en forme knowledge/fondateur.json (source unique, aussi utilisée par la section « Le fondateur » du site).
+ * Chaque information apparaît UNE fois, en arabe et en français sur la même ligne.
+ */
+export function renderFounder(d: FounderData): string {
+  const line = (b: Bilingual) => `${b.ar} — ${b.fr}`;
+  return [
+    '# مؤسس الحزب / Le fondateur du parti',
+    "> Note pour l'assistant : voici tout ce que les documents du parti disent du fondateur. N'ajoute aucun autre détail biographique (âge, famille, diplômes, parcours non listé, opinions personnelles) : si on te le demande, réponds que ces informations ne figurent pas dans les documents dont tu disposes.",
+    '',
+    `Nom : ${line(d.name)}`,
+    `Présentation : ${line(d.headline)}, basé à ${d.city.fr} (${d.city.ar})`,
+    '',
+    'Fonctions :',
+    ...d.roles.map((r) => `- ${line(r)}`),
+    '',
+    'Compétences :',
+    ...d.skills.map((x) => `- ${line(x)}`),
+    '',
+    `Profil (ses mots) : ${d.profile.fr}`,
+    ...(d.facebookGroup ? ['', `Groupe Facebook indiqué dans son CV : ${d.facebookGroup}`] : []),
+  ].join('\n');
+}
+
 export function loadKnowledge(dir = path.join(process.cwd(), 'knowledge')): string {
   let files: string[] = [];
   try {
-    files = fs.readdirSync(dir).filter((f) => /\.(md|txt)$/i.test(f)).sort();
+    files = fs.readdirSync(dir).filter((f) => /\.(md|txt|json)$/i.test(f)).sort();
   } catch {
     return '';
   }
-  const parts = files.map((f) => `=== DOCUMENT : ${f} ===\n${fs.readFileSync(path.join(dir, f), 'utf8').trim()}`);
+  const parts: string[] = [];
+  for (const f of files) {
+    const raw = fs.readFileSync(path.join(dir, f), 'utf8');
+    let text = raw.trim();
+    if (/\.json$/i.test(f)) {
+      try {
+        text = f === 'fondateur.json' ? renderFounder(JSON.parse(raw) as FounderData) : '';
+      } catch {
+        text = '';
+      }
+    }
+    if (text) parts.push(`=== DOCUMENT : ${f} ===\n${text}`);
+  }
   return parts.join('\n\n').slice(0, LIMITS.maxKnowledgeChars);
 }
 

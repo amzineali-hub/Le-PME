@@ -1,0 +1,26 @@
+{
+  "name": { "ar": "علي أمزين", "fr": "Ali Amzine" },
+  "headline": { "ar": "كاتب اقتصادي", "fr": "Écrivain économiste" },
+  "city": { "ar": "الدار البيضاء", "fr": "Casablanca" },
+  "profile": {
+    "ar": "متحمس للغاية ومنخرط في تنمية الكفاءات والمكتسبات وفي الابتكار والإبداع من أجل بزوغ المغرب الصاعد. واثق ومصرّ على التعاون لإنجاز هذا المشروع الوطني الذي يحظى باهتمام العاهل والمغاربة، ومن أجل التحفيز على هذا الورش التنموي المتعدد الأبعاد!",
+    "fr": "Extrêmement motivé et impliqué dans le développement des compétences et des acquis de l'innovation et de la créativité pour l'avènement du Maroc Émergent. Confiant et obstiné à collaborer pour la réalisation de ce projet national qui tient à cœur au Souverain et aux Marocains et pour la motivation à ce chantier développementiste et multidimensionnel !"
+  },
+  "roles": [
+    { "ar": "مؤسس حزب المغرب الصاعد", "fr": "Fondateur du Parti du Maroc Émergent" },
+    { "ar": "مؤسس الحركة التنموية", "fr": "Fondateur du mouvement développementiste" },
+    { "ar": "رئيس منتدب للحركة الوطنية لمسيرة المملكة", "fr": "Vice-président du mouvement national du Maroc en Marche" },
+    { "ar": "مدير الأكاديمية الدولية للغات والمهن والمهارات", "fr": "Directeur de l'Académie Internationale des langues, des métiers et des compétences" }
+  ],
+  "skills": [
+    { "ar": "اقتصادي، كاتب ومحلل سياسي", "fr": "Économiste, écrivain et analyste politique" },
+    { "ar": "فاعل سياسي واجتماعي", "fr": "Acteur politique et social" },
+    { "ar": "مهندس إعلاميات ومبرمج", "fr": "Ingénieur informaticien et programmeur" },
+    { "ar": "محاضر ومكوّن في الذكاء الجماعي والابتكار", "fr": "Conférencier et formateur en intelligence collective et en innovation" },
+    { "ar": "مدرب في اللغات والتواصل", "fr": "Formateur en langues et communication" },
+    { "ar": "مهندس إدماج الذكاء الاصطناعي", "fr": "Intégrateur en intelligence artificielle" },
+    { "ar": "ماجستير في السمعي البصري والتلفزيون الافتراضي", "fr": "Master en audiovisuel et télévision virtuelle" },
+    { "ar": "مقاول ومدير تجاري، ومصمم صناعة المكاتب وتهيئة المساحات العمومية", "fr": "Entrepreneur et directeur commercial en design bureautique et aménagement des espaces publics" }
+  ],
+  "facebookGroup": "https://web.facebook.com/groups/358646184746035/"
+}

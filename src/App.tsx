@@ -48,6 +48,7 @@ import { AuthModal } from './components/AuthModal';
 import { AdminPanel } from './components/AdminPanel';
 import { WhatsAppButton } from './components/WhatsAppButton';
 import { AssistantWidget } from './components/AssistantWidget';
+import { FounderSection } from './components/FounderSection';
 import { IntroSplash } from './components/IntroSplash';
 import { PosterGallery } from './components/PosterGallery';
 import { GALLERY_BANDS } from './data/gallery';
@@ -337,6 +338,8 @@ export default function App() {
               <ManifestoSection lang={lang} />
             </section>
 
+            <FounderSection lang={lang} />
+
             <section>
               <PosterGallery
                 images={GALLERY_BANDS[0]}
@@ -420,8 +423,9 @@ export default function App() {
         )}
 
         {currentTab === 'manifesto' && (
-          <div className="py-12 px-4 sm:px-6">
+          <div className="py-12 px-4 sm:px-6 space-y-16">
             <ManifestoSection lang={lang} />
+            <FounderSection lang={lang} />
           </div>
         )}
 

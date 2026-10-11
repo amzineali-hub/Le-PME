@@ -3,6 +3,7 @@
  * Lancer : npm run test:assistant
  */
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
@@ -77,11 +78,29 @@ const fresh = (generate = fake, env: Record<string, string | undefined> = {}) =>
 await test('la base de connaissance contient le projet politique et le guide d\'adhésion', () => {
   assert.ok(knowledge.includes('=== DOCUMENT : 00-faq-adhesion-et-site.md ==='));
   assert.ok(knowledge.includes('=== DOCUMENT : 01-projet-politique.md ==='));
-  assert.ok(knowledge.includes('=== DOCUMENT : 02-fondateur.md ==='));
-  assert.ok(knowledge.includes('علي أمزين') && knowledge.includes('Ali Amzine'));
+  assert.ok(knowledge.includes('=== DOCUMENT : fondateur.json ==='));
   assert.ok(knowledge.includes('حزب المغرب الصاعد'));
   assert.ok(knowledge.includes('2727'));
   assert.ok(knowledge.length > 20_000, `trop court : ${knowledge.length}`);
+});
+await test('le fondateur : TOUTES les données du JSON (site) se retrouvent dans la base de l assistant', () => {
+  const d = JSON.parse(fs.readFileSync(path.join(here, '..', 'knowledge', 'fondateur.json'), 'utf8'));
+  const all: string[] = [d.name.ar, d.name.fr, d.headline.ar, d.headline.fr, d.city.ar, d.city.fr, d.profile.fr, d.facebookGroup];
+  for (const x of [...d.roles, ...d.skills]) all.push(x.ar, x.fr);
+  for (const s of all) assert.ok(knowledge.includes(s), 'absent de la base : ' + s);
+  assert.ok(d.roles.length === 4 && d.skills.length >= 8);
+});
+await test('aucune ligne n est dupliquée dans la base de connaissance (sans doublon)', () => {
+  const seen = new Map<string, number>();
+  for (const line of knowledge.split('\n').map((l) => l.trim()).filter((l) => l.length > 30)) {
+    seen.set(line, (seen.get(line) ?? 0) + 1);
+  }
+  const dup = [...seen].filter(([, n]) => n > 1).map(([l]) => l.slice(0, 60));
+  assert.deepEqual(dup, []);
+});
+await test('la base ne contient pas l adresse email personnelle (identifiant administrateur)', () => {
+  assert.ok(!/amzine\.ali@gmail\.com/i.test(knowledge));
+  assert.ok(knowledge.includes('developpementistes@gmail.com'));
 });
 await test('un dossier de connaissance absent ne fait pas planter', () => {
   assert.equal(loadKnowledge(path.join(here, 'inexistant')), '');
