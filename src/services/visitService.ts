@@ -52,15 +52,13 @@ export async function registerVisit(): Promise<VisitStats | null> {
   const newDevice = !safeGet('local', DEVICE_KEY);
   const inc = newDevice ? 1 : 0;
   try {
-    try {
+    // Les règles refusent une mise à jour sur un document absent : on vérifie d'abord s'il existe.
+    const exists = (await getDoc(ref())).exists();
+    if (exists) {
       await updateDoc(ref(), { total: increment(1), unique: increment(inc) });
-    } catch (err) {
-      // Le document n'existe pas encore : première visite de tous les temps.
-      if ((err as { code?: string })?.code === 'not-found') {
-        await setDoc(ref(), { total: 1, unique: 1 });
-      } else {
-        throw err;
-      }
+    } else {
+      // Première visite de tous les temps : les règles imposent 1 / 1 à la création.
+      await setDoc(ref(), { total: 1, unique: 1 });
     }
     if (newDevice) safeSet('local', DEVICE_KEY);
   } catch {
