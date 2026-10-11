@@ -50,7 +50,7 @@ export const LIMITS = {
   maxOutputTokens: 2000,
   rateWindowMs: 10 * 60 * 1000,
   rateMax: 15,
-  timeoutMs: 25_000,
+  timeoutMs: 9_000,
   maxKnowledgeChars: 250_000,
 };
 
@@ -251,18 +251,29 @@ export const geminiGenerate: Generate = async ({ system, messages, maxOutputToke
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) throw new Error('not_configured');
   const ai = new GoogleGenAI({ apiKey });
-  const response = await ai.models.generateContent({
-    // « gemini-flash-latest » suit automatiquement le dernier modèle Flash ; modifiable via GEMINI_MODEL.
-    model: process.env.GEMINI_MODEL || 'gemini-flash-latest',
-    contents: messages.map((m) => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.content }] })),
-    config: {
-      systemInstruction: system,
-      maxOutputTokens,
-      temperature: 0.3,
-      abortSignal: AbortSignal.timeout(LIMITS.timeoutMs),
-    },
-  });
-  return (response.text ?? '').trim();
+  // Modèle principal puis modèles de secours : sur l'offre gratuite, chaque modèle a son propre quota
+  // et peut être surchargé indépendamment des autres.
+  const models = [...new Set([process.env.GEMINI_MODEL || 'gemini-flash-latest', 'gemini-2.5-flash', 'gemini-2.5-flash-lite'])];
+  let lastErr: unknown;
+  for (const model of models) {
+    try {
+      const response = await ai.models.generateContent({
+        model,
+        contents: messages.map((m) => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.content }] })),
+        config: {
+          systemInstruction: system,
+          maxOutputTokens,
+          temperature: 0.3,
+          abortSignal: AbortSignal.timeout(LIMITS.timeoutMs),
+        },
+      });
+      return (response.text ?? '').trim();
+    } catch (err) {
+      lastErr = err;
+      console.error(`[assistant] modèle ${model} en échec :`, redact(String((err as Error)?.message ?? err)).slice(0, 300));
+    }
+  }
+  throw lastErr;
 };
 
 // ---------------------------------------------------------------------------
