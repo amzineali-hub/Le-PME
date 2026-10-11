@@ -343,7 +343,7 @@ export function createHandler(deps: HandlerDeps) {
       if (msg.includes('not_configured')) {
         res.status(503).json({ error: 'not_configured' });
       } else if (/429|quota|RESOURCE_EXHAUSTED|rate/i.test(msg)) {
-        res.status(503).json({ error: 'busy' });
+        res.status(503).json({ error: 'busy', detail: redact(msg).replace(/["{}]/g, ' ').slice(0, 450) });
       } else {
         // Aucun contenu de conversation n'est journalisé, et toute clé d'API éventuelle est masquée.
         console.error('[assistant] échec de génération :', redact(msg).slice(0, 200));
