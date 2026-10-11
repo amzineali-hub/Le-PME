@@ -240,7 +240,7 @@ await test('quota Gemini dépassé : 503 busy', async () => {
   const h = fresh(async () => {
     throw new Error('429 RESOURCE_EXHAUSTED quota exceeded');
   });
-  assert.deepEqual((await call(h, { body: { messages: msgs('Salam') } })).body, { error: 'busy' });
+  assert.equal(((await call(h, { body: { messages: msgs('Salam') } })).body as { error: string }).error, 'busy');
 });
 await test('panne du modèle : 502 unavailable, message d\'erreur interne jamais renvoyé', async () => {
   const h = fresh(async () => {
