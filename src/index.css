@@ -67,6 +67,15 @@
     margin: 0 !important;
     padding: 0 !important;
   }
+  *:has(.card-print-target) {
+    padding: 0 !important;
+    margin: 0 !important;
+    border: 0 !important;
+    background: transparent !important;
+    min-height: 0 !important;
+    height: auto !important;
+    gap: 0 !important;
+  }
   .card-print-target,
   .card-print-target * {
     -webkit-print-color-adjust: exact;
@@ -273,6 +282,9 @@ div[class*="bg-slate-800/40"][class*="rounded-"] {
   *::before,
   *::after {
     box-shadow: none !important;
+  }
+  /* Le bandeau de la carte est centré par « translate » : on ne l'aplatit pas. */
+  *:not(.card-ribbon) {
     translate: none !important;
   }
 }

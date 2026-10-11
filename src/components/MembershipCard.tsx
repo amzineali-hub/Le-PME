@@ -30,7 +30,7 @@ export const MembershipCard: React.FC<MembershipCardProps> = ({
   const ribbon = !complete ? (
     <div
       aria-hidden="true"
-      className="pointer-events-none absolute left-1/2 top-1/2 z-20 w-[170%] -translate-x-1/2 -translate-y-1/2 -rotate-[24deg]"
+      className="card-ribbon pointer-events-none absolute left-1/2 top-1/2 z-20 w-[170%] -translate-x-1/2 -translate-y-1/2 -rotate-[24deg]"
     >
       <div
         dir="rtl"
@@ -182,7 +182,7 @@ export const MembershipCard: React.FC<MembershipCardProps> = ({
                     : `Dossier : ${progress}/${DOC_KINDS.length} pièces validées`}
                 </span>
               </div>
-              <div className="flex items-center gap-1.5 text-white font-bold text-[11px]">
+              <div className="print:hidden flex items-center gap-1.5 text-white font-bold text-[11px]">
                 <RotateCw className="w-3.5 h-3.5 group-hover:rotate-180 transition-transform duration-500" />
                 <span>{lang === 'ar' ? 'انقر للظهر' : 'Cliquer pour verso'}</span>
               </div>
