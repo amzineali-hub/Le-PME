@@ -122,7 +122,7 @@ export const DossierCard: React.FC<DossierCardProps> = ({ member, lang, onMember
                     <span>{st === 'rejected' ? (isAr ? 'إعادة الإيداع' : 'Redéposer') : isAr ? 'إيداع' : 'Déposer'}</span>
                     <input
                       type="file"
-                      accept="image/*,application/pdf"
+                      accept="application/pdf,.pdf"
                       onChange={handleFile(kind)}
                       disabled={busy !== null}
                       className="hidden"
@@ -137,8 +137,8 @@ export const DossierCard: React.FC<DossierCardProps> = ({ member, lang, onMember
 
       <p className="text-[11px] text-slate-600">
         {isAr
-          ? 'صور (JPG/PNG) أو PDF لا يتعدى 600 كيلوبايت. لا يطلع على الوثائق إلا مسؤولو الحزب المخولون.'
-          : 'Photos (JPG/PNG) ou PDF de 600 Ko maximum. Seuls les responsables habilités du parti consultent ces documents.'}
+          ? 'ملفات PDF فقط، 700 كيلوبايت كحد أقصى لكل وثيقة. لا يطلع على الوثائق إلا مسؤولو الحزب المخولون.'
+          : 'PDF uniquement, 700 Ko maximum par pièce. Seuls les responsables habilités du parti consultent ces documents.'}
       </p>
       {error && <p className="text-xs font-semibold text-red-700">{error}</p>}
     </div>

@@ -129,8 +129,8 @@ service cloud.firestore {
       allow create, update: if signedIn()
         && request.auth.uid == uid
         && request.resource.data.keys().hasOnly(['dataUrl', 'mime', 'name', 'uploadedAt'])
-        && request.resource.data.mime in ['image/jpeg', 'application/pdf']
-        && request.resource.data.dataUrl.size() < 900000;
+        && request.resource.data.mime == 'application/pdf'
+        && request.resource.data.dataUrl.size() < 950000;
       allow list, delete: if false;
     }
 
@@ -220,8 +220,8 @@ service cloud.firestore {
         && request.resource.data.uid == request.auth.uid
         && request.resource.data.kind in ['engagement', 'cinRecto', 'cinVerso']
         && docId == request.auth.uid + '_' + request.resource.data.kind
-        && request.resource.data.mime in ['image/jpeg', 'application/pdf']
-        && request.resource.data.dataUrl.size() < 900000
+        && request.resource.data.mime == 'application/pdf'
+        && request.resource.data.dataUrl.size() < 950000
         && request.resource.data.uploadedAt == request.time
         && memberDoc().get(request.resource.data.kind + 'Status', 'none') in ['none', 'rejected'];
       allow list, delete: if false;

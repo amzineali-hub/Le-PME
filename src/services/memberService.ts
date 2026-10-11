@@ -15,14 +15,15 @@ export type NewMemberData = Omit<Member, 'id' | 'role' | 'status' | 'isElectoral
 
 export interface ElectoralProof {
   dataUrl: string;
-  mime: 'image/jpeg' | 'application/pdf';
+  mime: 'application/pdf';
   name: string;
 }
 
 // La fiche (image ou PDF) est stockée dans Firestore (plan gratuit, sans Cloud Storage).
 // Les documents Firestore sont limités à 1 Mo : on compresse les images et on borne les PDF.
-const MAX_PDF_BYTES = 600 * 1024;
-const MAX_PROOF_CHARS = 850_000;
+// Un document Firestore pèse 1 Mo au plus ; le base64 ajoute 33 % : 690 Ko de PDF tiennent dans 950 000 caractères.
+const MAX_PDF_BYTES = 690 * 1024;
+const MAX_PROOF_CHARS = 950_000;
 
 function readAsDataUrl(file: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -111,20 +112,21 @@ async function portraitPhoto(file: File): Promise<string> {
 
 export const preparePhoto = (file: File) => portraitPhoto(file);
 
-/** Fiche d'inscription sur les listes électorales : image compressée ou PDF léger. */
+/**
+ * Pièces du dossier d'adhésion (engagement, CIN recto/verso, fiche électorale) : PDF uniquement.
+ * On vérifie le type déclaré, l'extension et la signature « %PDF » du fichier.
+ */
 export async function prepareElectoralProof(file: File): Promise<ElectoralProof> {
-  if (file.type === 'application/pdf') {
-    if (file.size > MAX_PDF_BYTES) throw new Error('file-too-large');
-    const dataUrl = await readAsDataUrl(file);
-    if (dataUrl.length > MAX_PROOF_CHARS) throw new Error('file-too-large');
-    return { dataUrl, mime: 'application/pdf', name: file.name.slice(0, 120) };
-  }
-  if (file.type.startsWith('image/')) {
-    const dataUrl = await compressImage(file, 1600, 0.75, MAX_PROOF_CHARS);
-    return { dataUrl, mime: 'image/jpeg', name: file.name.slice(0, 120) };
-  }
-  throw new Error('file-type');
+  const looksPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
+  if (!looksPdf) throw new Error('file-type');
+  if (file.size > MAX_PDF_BYTES) throw new Error('file-too-large');
+  const head = new TextDecoder().decode(await file.slice(0, 5).arrayBuffer());
+  if (!head.startsWith('%PDF')) throw new Error('file-type');
+  const dataUrl = (await readAsDataUrl(file)).replace(/^data:[^;]*;base64,/, 'data:application/pdf;base64,');
+  if (dataUrl.length > MAX_PROOF_CHARS) throw new Error('file-too-large');
+  return { dataUrl, mime: 'application/pdf', name: file.name.slice(0, 120) };
 }
+
 
 export async function registerMember(
   data: NewMemberData,
@@ -222,8 +224,8 @@ export function describeError(err: unknown, isAr: boolean): string {
   if (code.includes('too-many-requests')) return m('Trop de tentatives. Réessayez dans quelques minutes.', 'محاولات كثيرة. أعد المحاولة بعد دقائق.');
   if (code.includes('network')) return m('Problème de connexion internet.', 'مشكل في الاتصال بالإنترنت.');
   if (code.includes('permission-denied')) return m('Cette CIN est déjà inscrite ou l’accès a été refusé.', 'رقم البطاقة الوطنية مسجل مسبقاً أو تم رفض الطلب.');
-  if (code.includes('file-too-large')) return m('Fichier trop volumineux (600 Ko maximum pour un PDF).', 'الملف كبير جداً (600 كيلوبايت كحد أقصى لملف PDF).');
-  if (code.includes('file-type')) return m('Format non accepté : image (JPG, PNG) ou PDF uniquement.', 'صيغة غير مقبولة: صورة أو PDF فقط.');
+  if (code.includes('file-too-large')) return m('PDF trop volumineux (700 Ko maximum). Réduisez-le (numérisation en 150 dpi, niveaux de gris).', 'ملف PDF كبير جداً (700 كيلوبايت كحد أقصى). قلّص حجمه (مسح بدقة 150 نقطة، تدرج رمادي).');
+  if (code.includes('file-type')) return m('Format non accepté : PDF uniquement.', 'صيغة غير مقبولة: ملف PDF فقط.');
   if (code.includes('member-not-found')) return m('Aucune fiche adhérent associée à ce compte.', 'لا توجد بطاقة منخرط مرتبطة بهذا الحساب.');
   return m('Une erreur est survenue. Veuillez réessayer.', 'حدث خطأ. يرجى المحاولة مرة أخرى.');
 }

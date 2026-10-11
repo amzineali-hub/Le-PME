@@ -744,8 +744,8 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({
               </h2>
               <p className="text-slate-600 text-sm">
                 {isAr
-                  ? 'تحقق من قيدك على موقع وزارة الداخلية، ثم أرفق نسخة (صورة أو PDF) من الوصل. يمكنك أيضاً إيداعها لاحقاً من فضائك الخاص.'
-                  : 'Vérifiez votre inscription sur le site du ministère de l’Intérieur, puis joignez la fiche (photo ou PDF). Vous pouvez aussi la déposer plus tard depuis votre espace.'}
+                  ? 'تحقق من قيدك على موقع وزارة الداخلية، ثم أرفق نسخة (PDF) من الوصل. يمكنك أيضاً إيداعها لاحقاً من فضائك الخاص.'
+                  : 'Vérifiez votre inscription sur le site du ministère de l’Intérieur, puis joignez la fiche (PDF). Vous pouvez aussi la déposer plus tard depuis votre espace.'}
               </p>
             </div>
 
@@ -772,15 +772,15 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({
                   {proof
                     ? proof.name
                     : isAr
-                    ? 'اضغط لاختيار الملف (صورة أو PDF)'
-                    : 'Touchez pour choisir le fichier (photo ou PDF)'}
+                    ? 'اضغط لاختيار ملف PDF'
+                    : 'Touchez pour choisir le fichier PDF'}
                 </div>
                 <div className="text-[11px] text-slate-500 mt-1">
-                  {isAr ? 'JPG أو PNG أو PDF (600 كيلوبايت كحد أقصى)' : 'JPG, PNG ou PDF (600 Ko maximum pour un PDF)'}
+                  {isAr ? 'ملف PDF فقط (700 كيلوبايت كحد أقصى)' : 'PDF uniquement (700 Ko maximum)'}
                 </div>
                 <input
                   type="file"
-                  accept="image/*,application/pdf"
+                  accept="application/pdf,.pdf"
                   onChange={handleProofUpload}
                   className="hidden"
                 />

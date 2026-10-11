@@ -9,26 +9,26 @@ export const DOC_LABELS: Record<DocKind, { fr: string; ar: string; hintFr: strin
   engagement: {
     fr: 'Engagement signé et légalisé',
     ar: 'الالتزام الموقع والمصادق عليه',
-    hintFr: 'Photo ou PDF de l’engagement, signature légalisée.',
-    hintAr: 'صورة أو PDF للالتزام مع التوقيع المصادق عليه.',
+    hintFr: 'PDF de l’engagement, signature légalisée.',
+    hintAr: 'ملف PDF للالتزام مع التوقيع المصادق عليه.',
   },
   cinRecto: {
     fr: 'CIN — recto',
     ar: 'البطاقة الوطنية — الوجه',
-    hintFr: 'Face avant de votre carte nationale.',
-    hintAr: 'الوجه الأمامي لبطاقتك الوطنية.',
+    hintFr: 'PDF de la face avant de votre carte nationale.',
+    hintAr: 'ملف PDF للوجه الأمامي لبطاقتك الوطنية.',
   },
   cinVerso: {
     fr: 'CIN — verso',
     ar: 'البطاقة الوطنية — الظهر',
-    hintFr: 'Face arrière de votre carte nationale.',
-    hintAr: 'الوجه الخلفي لبطاقتك الوطنية.',
+    hintFr: 'PDF de la face arrière de votre carte nationale.',
+    hintAr: 'ملف PDF للوجه الخلفي لبطاقتك الوطنية.',
   },
   electoral: {
     fr: 'Fiche d’inscription sur les listes électorales',
     ar: 'وصل القيد في اللوائح الانتخابية',
-    hintFr: 'Photo ou PDF de la fiche délivrée par le ministère de l’Intérieur.',
-    hintAr: 'صورة أو PDF للوصل الصادر عن وزارة الداخلية.',
+    hintFr: 'PDF de la fiche délivrée par le ministère de l’Intérieur.',
+    hintAr: 'ملف PDF للوصل الصادر عن وزارة الداخلية.',
   },
 };
 
