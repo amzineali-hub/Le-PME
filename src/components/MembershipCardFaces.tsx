@@ -128,16 +128,16 @@ export const CardFront: React.FC<FaceProps> = ({ member, lang, className = '', s
             )}
           </div>
 
-          <div className="grid grid-cols-2 gap-x-2 gap-y-0.5 text-[11px]">
-            <div>
+          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 text-[11px]">
+            <div className="whitespace-nowrap">
               <span className="text-slate-400">{t.card.matricule}</span>{' '}
               <span className="font-mono font-bold text-amber-200">{member.membershipNumber}</span>
             </div>
-            <div>
+            <div className="whitespace-nowrap">
               <span className="text-slate-400">{t.card.cin}</span>{' '}
               <span className="font-mono font-bold text-white">{maskCin(member.cin)}</span>
             </div>
-            <div className="col-span-2 truncate">
+            <div className="basis-full truncate">
               <span className="text-slate-400">{t.card.region}</span>{' '}
               <span className="font-semibold text-emerald-300">{regionName}</span>
             </div>
