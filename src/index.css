@@ -49,63 +49,6 @@
   }
 }
 
-/* Impression de la carte : seuls la carte et ses parents restent dans la mise en page
-   (recto et verso l'un sous l'autre, couleurs de fond conservées, pas de page blanche) */
-@media print {
-  @page {
-    margin: 10mm;
-  }
-  *:not(:has(.card-print-target)):not(.card-print-target):not(.card-print-target *) {
-    display: none !important;
-  }
-  html,
-  body,
-  #root {
-    background: #fff !important;
-    height: auto !important;
-    min-height: 0 !important;
-    margin: 0 !important;
-    padding: 0 !important;
-  }
-  *:has(.card-print-target) {
-    padding: 0 !important;
-    margin: 0 !important;
-    border: 0 !important;
-    background: transparent !important;
-    min-height: 0 !important;
-    height: auto !important;
-    gap: 0 !important;
-  }
-  .card-print-target,
-  .card-print-target * {
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
-  }
-  .card-print-target {
-    position: static !important;
-    height: auto !important;
-    width: 480px !important;
-    max-width: none !important;
-    perspective: none !important;
-    margin: 0 auto !important;
-  }
-  .card-flip-inner {
-    transform: none !important;
-    height: auto !important;
-    box-shadow: none !important;
-  }
-  .card-face {
-    position: relative !important;
-    transform: none !important;
-    height: 290px !important;
-    margin-bottom: 14px;
-    box-shadow: none !important;
-    -webkit-backface-visibility: visible !important;
-    backface-visibility: visible !important;
-    break-inside: avoid;
-  }
-}
-
 /* ==========================================================================
    Relief 3D — deux couleurs : vert émeraude (actions) + bleu pétrole du logo.
    CSS non "layered" : il l'emporte sur les utilitaires Tailwind, sans toucher aux composants.

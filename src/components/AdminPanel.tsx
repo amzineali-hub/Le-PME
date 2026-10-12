@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ElectoralStatus, Language, Member } from '../types';
 import { MOROCCAN_REGIONS } from '../data/regions';
+import { MembershipCard } from './MembershipCard';
 import { DOC_KINDS, DOC_LABELS, DocKind, docStatusOf, dossierProgress, dossierState } from '../utils/dossier';
 import {
   describeError,
@@ -332,6 +333,11 @@ const MemberDetail: React.FC<MemberDetailProps> = ({ member, lang, onClose, onDe
               </div>
             ))}
           </dl>
+
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:p-5">
+            <h4 className="font-bold text-slate-900 mb-3 text-center">{isAr ? 'بطاقة العضو' : 'Carte de membre'}</h4>
+            <MembershipCard member={member} lang={lang} />
+          </div>
 
           {canAdmin && (
             <>
